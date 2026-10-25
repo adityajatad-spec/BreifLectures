@@ -84,7 +84,7 @@ def test_setup_reports_each_stage(client, monkeypatch):
             assert time.time() < deadline
             time.sleep(0.02)
         assert pull["status"] == "done"
-        assert (pull["completed"], pull["total"]) == (3_000, 3_000)  # tracks the big blob, not the tiny last one
+        assert (pull["completed"], pull["total"]) == (3_010, 3_010)  # both blobs, not just the last one
         assert client.get("/api/setup").json()["model_ready"]
 
         client.post("/api/setup/pull", json={"model": "missing:1b"})

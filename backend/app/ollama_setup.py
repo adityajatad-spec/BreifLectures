@@ -79,12 +79,16 @@ def start_pull(model: str) -> PullState:
 
 
 def _run_pull(state: PullState) -> None:
+    # A model arrives as several blobs (weights, projector, template, ...), each reporting its
+    # own progress; the overall figure is the sum over every blob seen so far.
+    blobs: dict[str, tuple[int, int]] = {}
     try:
         for progress in analyze_ollama.client().pull(state.model, stream=True):
             state.detail = progress.status or ""
-            # A model is several blobs; the weights dominate, so report the largest one we've seen.
-            if progress.total and progress.total >= state.total:
-                state.total, state.completed = progress.total, progress.completed or 0
+            if progress.digest and progress.total:
+                blobs[progress.digest] = (progress.completed or 0, progress.total)
+                state.completed = sum(done for done, _ in blobs.values())
+                state.total = sum(total for _, total in blobs.values())
         state.status, state.detail = "done", "Downloaded"
     except ConnectionError:
         state.status, state.error = "error", f"Ollama isn't running at {config.OLLAMA_HOST}."

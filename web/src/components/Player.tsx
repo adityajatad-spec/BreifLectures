@@ -11,6 +11,7 @@ interface Props {
   videoId: string;
   ranges: SkipRange[];
   rate: number;
+  startAt?: number;
   onTime(seconds: number): void;
 }
 
@@ -23,7 +24,7 @@ const POLL_MS = 200;
 
 // Embeds the YouTube player and auto-skips `ranges`. "Undo" on the toast jumps back
 // and exempts that range, so a student can always watch what we cut.
-export const Player = forwardRef<PlayerHandle, Props>(function Player({ videoId, ranges, rate, onTime }, ref) {
+export const Player = forwardRef<PlayerHandle, Props>(function Player({ videoId, ranges, rate, startAt = 0, onTime }, ref) {
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const exempt = useRef<Set<number>>(new Set());
@@ -41,7 +42,13 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ videoId,
         if (cancelled) return;
         player.current = new YT.Player(mount, {
           videoId,
-          playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+          playerVars: {
+            rel: 0,
+            playsinline: 1,
+            start: Math.floor(startAt),
+            // The IFrame API talks to us via postMessage; inside the desktop app it must know our origin.
+            origin: window.location.origin,
+          },
           events: { onReady: () => player.current?.setPlaybackRate(rate) },
         });
       })
@@ -51,7 +58,7 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ videoId,
       player.current?.destroy();
       player.current = null;
     };
-    // `rate` is deliberately not a dependency: changing speed must not rebuild the player.
+    // `rate` and `startAt` are deliberately not dependencies: they must not rebuild the player.
   }, [videoId]);
 
   useEffect(() => {

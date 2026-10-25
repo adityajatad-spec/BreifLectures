@@ -1,15 +1,32 @@
+import logging
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-from . import analyze_heuristic, analyze_ollama, cache, config, youtube
-from .models import Analysis, AnalyzeRequest, Job
+from . import analyze_heuristic, analyze_ollama, cache, config, ollama_setup, settings, youtube
+from .models import Analysis, AnalyzeRequest, Job, LibraryItem
 from .segmenter import build_segments
 
-app = FastAPI(title="BriefLectures API", version="0.2.0")
+log = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    settings.load()
+    yield
+
+
+app = FastAPI(title="BriefLectures API", version="0.3.0", lifespan=lifespan)
+# Only answer to loopback host names. Otherwise a web page could rebind its own domain to
+# 127.0.0.1 (DNS rebinding) and drive this API from the user's browser.
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS,
@@ -73,6 +90,7 @@ def _run(job: Job, engine_info: tuple[str, str]) -> None:
     except (youtube.YouTubeError, analyze_ollama.LocalModelError) as exc:
         job.status, job.error = "error", str(exc)
     except Exception as exc:  # surface anything unexpected instead of leaving the job "running" forever
+        log.exception("Analysis of %s failed", job.video_id)
         job.status, job.error = "error", f"Unexpected error: {type(exc).__name__}: {exc}"
 
 
@@ -84,8 +102,11 @@ def analyze(req: AnalyzeRequest) -> Job:
         raise HTTPException(400, str(exc)) from exc
 
     engine = _engine()
-    if not req.force and (hit := cache.get(video_id, engine[0])):
-        return Job(id="cached", video_id=video_id, status="done", result=hit)
+    if not req.force:
+        # An AI analysis beats a fresh heuristic one, e.g. when Ollama just isn't running right now.
+        hit = cache.get(video_id, engine[0]) or (engine[0] == "heuristic" and cache.get(video_id, "ollama"))
+        if hit:
+            return Job(id="cached", video_id=video_id, status="done", result=hit)
 
     with _lock:
         for job in _jobs.values():
@@ -103,3 +124,72 @@ def job_status(job_id: str) -> Job:
     if job is None:
         raise HTTPException(404, "Unknown job")
     return job
+
+
+# --- Library: lectures analyzed before -------------------------------------------------
+
+
+@app.get("/api/library", response_model=list[LibraryItem])
+def library() -> list[LibraryItem]:
+    return cache.recent()
+
+
+@app.delete("/api/library/{video_id}")
+def forget(video_id: str) -> dict:
+    cache.delete(video_id)
+    return {"ok": True}
+
+
+# --- Setup: getting a local model running ------------------------------------------------
+
+
+@app.get("/api/setup")
+def setup_status() -> dict:
+    models = ollama_setup.pulled_models()
+    engine, detail = _engine()
+    return {
+        "engine": engine,
+        "detail": detail,
+        "model_ready": analyze_ollama.status()[0] if models is not None else False,
+        "ollama": ollama_setup.ollama_state(models),
+        "ollama_download_url": ollama_setup.OLLAMA_DOWNLOAD_URL,
+        "model": config.OLLAMA_MODEL,
+        "pulled": models or [],
+        "recommended": ollama_setup.RECOMMENDED,
+        "pull": ollama_setup.pull_state(),
+    }
+
+
+@app.post("/api/setup/start-ollama")
+def start_ollama() -> dict:
+    try:
+        ollama_setup.start_ollama()
+    except (RuntimeError, OSError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return {"ok": True}
+
+
+class PullRequest(BaseModel):
+    model: str
+
+
+@app.post("/api/setup/pull", response_model=ollama_setup.PullState)
+def pull(req: PullRequest) -> ollama_setup.PullState:
+    return ollama_setup.start_pull(req.model.strip())
+
+
+@app.get("/api/settings", response_model=settings.Settings)
+def get_settings() -> settings.Settings:
+    return settings.current()
+
+
+@app.put("/api/settings", response_model=settings.Settings)
+def put_settings(new: settings.Settings) -> settings.Settings:
+    if not new.model.strip():
+        raise HTTPException(400, "Model name can't be empty.")
+    return settings.save(new)
+
+
+# Registered last so /api/* always wins. Only the desktop app sets this.
+if config.STATIC_DIR:
+    app.mount("/", StaticFiles(directory=config.STATIC_DIR, html=True), name="ui")

@@ -58,7 +58,7 @@ def stubbed(monkeypatch, tmp_path):
     monkeypatch.setattr(main.cache, "CACHE_DB", tmp_path / "cache.sqlite3")
     monkeypatch.setattr(youtube, "fetch_transcript", lambda vid, langs: lecture())
     monkeypatch.setattr(youtube, "fetch_title", lambda vid: "Gradient Descent")
-    return TestClient(main.app)
+    return TestClient(main.app, base_url="http://127.0.0.1")
 
 
 def test_analyze_offline_falls_back_to_heuristic(stubbed, monkeypatch):

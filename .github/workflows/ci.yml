@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Backend tests
+        working-directory: backend
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+          .venv/bin/python -m pytest -q
+
+      - name: Web tests, typecheck and build
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+  desktop-check:
+    # Compiles the Tauri shell on Linux; release builds happen on macOS (release.yml).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: Install webview libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev
+      - name: Placeholder sidecar
+        # tauri-build checks that the bundled binary exists; the real one is built in release.yml.
+        run: |
+          mkdir -p desktop/src-tauri/binaries
+          touch "desktop/src-tauri/binaries/brief-api-$(rustc --print host-tuple)"
+      - name: Clippy
+        working-directory: desktop/src-tauri
+        run: cargo clippy --all-targets -- -D warnings

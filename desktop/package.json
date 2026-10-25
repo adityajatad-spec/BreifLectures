@@ -1,0 +1,14 @@
+{
+  "name": "brieflectures-desktop",
+  "private": true,
+  "version": "0.3.0",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon assets/icon-1024.png"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4"
+  }
+}

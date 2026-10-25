@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window. The UI is served by the bundled backend on 127.0.0.1, so that origin is allowed too; it may only open links in the browser.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
+  "permissions": ["opener:default"]
+}

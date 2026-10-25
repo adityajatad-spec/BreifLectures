@@ -1,6 +1,6 @@
 [project]
 name = "brieflectures-backend"
-version = "0.1.0"
+version = "0.3.0"
 description = "Lecture analysis service: fetches YouTube transcripts and labels skippable segments with a local model."
 requires-python = ">=3.11"
 dependencies = [

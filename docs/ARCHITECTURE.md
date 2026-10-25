@@ -54,12 +54,51 @@ The plan assumes an Apple Silicon Mac (M1 or newer), because the end product is 
 | **Run the backend on your Mac, not in the cloud** | YouTube blocks caption scraping from datacenter IPs (`youtube-transcript-api` raises `IpBlocked` / `RequestBlocked` there, and this repo's cloud sandbox can't reach YouTube at all). From a home IP it just works. This makes desktop-first the easier path, not a detour. |
 | **Python for the backend** | The tools we need are Python-first: `youtube-transcript-api`, `yt-dlp`, and Whisper ports such as `mlx-whisper`, which runs very fast on Apple Silicon. |
 | **React + Vite + TypeScript for the UI** | The same UI becomes the macOS app's UI with no rewrite. |
-| **Tauri 2 for the macOS app (phase 2)** | Wraps the web UI in the system WKWebView. The app is ~10 MB, against 150 MB+ for Electron. The Python backend ships as a bundled sidecar binary (PyInstaller). It also supports a native menu bar, global shortcuts, auto-update and code signing. |
+| **Tauri 2 for the macOS app** | Wraps the web UI in the system WKWebView, so the shell adds only a few MB (Electron adds 150 MB+). The Python backend ships inside as a sidecar binary built with PyInstaller (~25 MB). Tauri also handles code signing, notarization and the .dmg. |
 | **SQLite** | Zero-ops, a single file in `~/Library/Application Support/…` once it's an app. |
 | **A local model via Ollama** | No API key, no per-lecture cost, and transcripts never leave the machine. Ollama handles Metal acceleration, model downloads and memory, and it can turn a JSON schema into a grammar so even a small model can only produce valid labels. If Ollama isn't running, the app falls back to an offline heuristic. |
 
 Native SwiftUI would feel slightly more native, but it means writing the UI twice (web
 and Mac) and moving off Python's media tooling. That isn't worth it at this stage.
+
+## The desktop app
+
+```
+BriefLectures.app
+├── brieflectures      Rust shell (desktop/src-tauri/src/lib.rs)
+├── brief-api          the Python backend, one PyInstaller binary
+└── Resources/web/     the built web UI
+```
+
+1. The window opens on a bundled splash page (`desktop/splash/`).
+2. The shell starts `brief-api --port 0 --data-dir … --static-dir Resources/web --parent-pid …`.
+3. The engine binds a free port on 127.0.0.1 and prints `BRIEF_READY http://127.0.0.1:<port>`.
+4. The shell navigates the window there. From then on the engine serves **both the UI and the
+   API from one origin**. That needs no CORS, the web code is identical in dev and in the
+   app, and the YouTube player gets the real `http://` origin it requires. YouTube refuses
+   to play inside pages served from `tauri://`.
+5. On quit the shell kills the engine. If the shell crashes instead, the engine notices
+   that its parent PID is gone within ~2 s and exits, so no orphaned server stays behind.
+6. If the engine dies or doesn't start within 60 s, the window returns to the splash page
+   with the reason, the log path and a **Restart** button.
+
+Page → shell calls are limited by `capabilities/default.json`: the engine's origin may only
+open links in the browser (`opener:default`). There's one app command, `restart_app`.
+
+Where things live on a Mac:
+
+| What | Where |
+|---|---|
+| Library cache + settings | `~/Library/Application Support/com.brieflectures.desktop/` |
+| Logs (`app.log`, `backend.log`, rotated) | `~/Library/Logs/com.brieflectures.desktop/` |
+| Remembered cut, speed, auto-skip, resume position | the webview's localStorage |
+
+**First run.** The home screen walks the user through local AI setup: download Ollama →
+start Ollama (the backend can launch `/Applications/Ollama.app`) → download the model, with
+a progress bar. Until that's done, lectures get the offline heuristic.
+
+`make app-dev` opens the desktop window on top of `make dev`, with hot reload; no sidecar
+is started in that mode. Releasing and signing are covered in [RELEASING.md](RELEASING.md).
 
 ## Local model: sizing for a 16 GB machine
 
@@ -128,11 +167,15 @@ numbers to users.
 - [ ] Desktop app manages Ollama for the user (detect, offer install, pull the model with a progress bar)
 
 **Phase 3: macOS app + branding**
-- [ ] Tauri shell, Python sidecar, signed and notarized `.dmg`
-- [ ] Spike early: YouTube embeds inside WKWebView need a real HTTP origin. Serve the UI from
-      `http://localhost` (Tauri localhost plugin), not `tauri://`, or YouTube refuses to play.
-- [ ] Brand pass: name, icon, colors (all colors are CSS tokens in `web/src/styles.css`)
+- [x] Tauri shell, Python sidecar, splash and crash screen with restart, logs, single instance, window state
+- [x] UI served from the engine's http:// origin, so the YouTube embed works
+- [x] First-run setup (Ollama + model download), library, settings, resume position, auto-skip toggle
+- [x] CI (tests + Rust lint) and a macOS release workflow (.dmg; signing/notarization via secrets)
+- [ ] First real run on a Mac, and a signed + notarized release (see RELEASING.md)
+- [ ] Auto-update, Intel build
+- [ ] Brand pass: name, icon, colors (all colors are CSS tokens in `web/src/styles.css`;
+      the icon is generated from `desktop/assets/icon.svg` with `npm run icons` in `desktop/`)
 
 **Phase 4: Breefly-parity features**
 - [ ] Notes, quizzes, flashcards, chat with the lecture, searchable transcript
-- [ ] Library of past lectures, resume position, per-course playlists
+- [ ] Per-course playlists

@@ -45,7 +45,7 @@ class LocalModelError(Exception):
     pass
 
 
-def _client() -> ollama.Client:
+def client() -> ollama.Client:
     return ollama.Client(host=config.OLLAMA_HOST, timeout=600)
 
 
@@ -56,7 +56,7 @@ def _canonical(name: str) -> str:
 def status() -> tuple[bool, str]:
     """(ready, explanation) for the configured model."""
     try:
-        pulled = {_canonical(m.model) for m in _client().list().models if m.model}
+        pulled = {_canonical(m.model) for m in client().list().models if m.model}
     except (ConnectionError, ollama.ResponseError):
         return False, f"Ollama isn't running at {config.OLLAMA_HOST}."
     if _canonical(config.OLLAMA_MODEL) not in pulled:
@@ -133,9 +133,9 @@ def _render(title: str, window: list[Segment], outline: list[str]) -> str:
     return "\n".join(lines)
 
 
-def _chat(client: ollama.Client, system: str, prompt: str, schema: dict | None) -> str:
+def _chat(llm: ollama.Client, system: str, prompt: str, schema: dict | None) -> str:
     try:
-        resp = client.chat(
+        resp = llm.chat(
             model=config.OLLAMA_MODEL,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             format=schema,
@@ -152,12 +152,12 @@ def _chat(client: ollama.Client, system: str, prompt: str, schema: dict | None) 
     return resp.message.content or ""
 
 
-def _label_window(client: ollama.Client, title: str, window: list[Segment], outline: list[str]) -> dict:
+def _label_window(llm: ollama.Client, title: str, window: list[Segment], outline: list[str]) -> dict:
     prompt = _render(title, window, outline)
     schema = _schema([s.id for s in window])
     for _ in range(2):  # small models occasionally truncate; one retry is usually enough
         try:
-            data = json.loads(_chat(client, SYSTEM, prompt, schema))
+            data = json.loads(_chat(llm, SYSTEM, prompt, schema))
             if isinstance(data.get("segments"), list):
                 return data
         except json.JSONDecodeError:
@@ -171,7 +171,7 @@ def analyze(
     # Start from the heuristic so a window the model fumbles still has sensible labels.
     segments, _ = analyze_heuristic.analyze(segments)
     by_id = {s.id: s for s in segments}
-    client = _client()
+    llm = client()
     parts = windows(segments)
     total = len(parts) + 1  # +1 for the summary
     outline: list[str] = []
@@ -179,7 +179,7 @@ def analyze(
 
     for i, window in enumerate(parts):
         progress(i, total)
-        data = _label_window(client, title, window, outline)
+        data = _label_window(llm, title, window, outline)
         allowed = {s.id for s in window}
         for item in data["segments"]:
             seg = by_id.get(item.get("id"))
@@ -207,6 +207,6 @@ def analyze(
     progress(len(parts), total)
     summary = ""
     if outline:
-        summary = _chat(client, SUMMARY_SYSTEM, f"Title: {title}\nTopics in order:\n" + "\n".join(outline), None).strip()
+        summary = _chat(llm, SUMMARY_SYSTEM, f"Title: {title}\nTopics in order:\n" + "\n".join(outline), None).strip()
     progress(total, total)
     return segments, chapters, summary

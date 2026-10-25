@@ -1,0 +1,75 @@
+name: Release (macOS)
+
+# Builds BriefLectures.app + .dmg for Apple Silicon.
+#   - Run it by hand (Actions → Release (macOS) → Run workflow) to get a .dmg as a build artifact.
+#   - Push a tag like v0.3.0 to also attach it to a draft GitHub release.
+# Signing and notarization switch on automatically once the Apple secrets below exist;
+# without them the app is ad-hoc signed (fine for testing, but Gatekeeper will warn users).
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+    env:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - name: Choose signing identity
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
+          else
+            echo "No Apple certificate configured: ad-hoc signing."
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix web
+          npm ci --prefix desktop
+
+      - name: Test
+        run: |
+          cd backend && python -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/python -m pytest -q
+          cd ../web && npm test
+
+      - name: Build the bundled engine
+        run: scripts/build-sidecar.sh
+
+      - name: Build, sign and notarize the app
+        working-directory: desktop
+        run: npm run build -- --bundles app,dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BriefLectures-macOS-arm64
+          path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+
+      - name: Attach to a draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: desktop/src-tauri/target/release/bundle/dmg/*.dmg

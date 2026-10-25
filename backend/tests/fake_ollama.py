@@ -34,9 +34,29 @@ class FakeOllama:
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 fake.requests.append(body)
+                if self.path == "/api/pull":
+                    return self._pull(body["model"])
                 if body["model"] not in fake.models:
                     return self._send(404, {"error": f"model '{body['model']}' not found"})
                 self._send(200, {"model": body["model"], "message": {"role": "assistant", "content": fake.reply(body)}, "done": True})
+
+            def _pull(self, model):
+                if model.startswith("missing"):
+                    return self._send(500, {"error": "pull model manifest: file does not exist"})
+                lines = [
+                    {"status": "pulling manifest"},
+                    {"status": "pulling abc", "digest": "abc", "total": 3_000, "completed": 1_000},
+                    {"status": "pulling abc", "digest": "abc", "total": 3_000, "completed": 3_000},
+                    {"status": "pulling def", "digest": "def", "total": 10, "completed": 10},
+                    {"status": "success"},
+                ]
+                raw = "".join(json.dumps(line) + "\n" for line in lines).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/x-ndjson")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+                fake.models.append(model)
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.server.server_address[1]}"

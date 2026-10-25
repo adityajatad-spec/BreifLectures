@@ -13,3 +13,7 @@ web/dist/
 .DS_Store
 .env
 .env.local
+
+# Desktop
+desktop/node_modules/
+backend/build/

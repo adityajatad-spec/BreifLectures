@@ -46,3 +46,44 @@ export interface Job {
   error: string | null;
   result: Analysis | null;
 }
+
+export interface LibraryItem {
+  video_id: string;
+  title: string;
+  duration: number;
+  engine: "ollama" | "heuristic";
+  analyzed_at: string;
+}
+
+export interface PullState {
+  model: string;
+  status: "idle" | "running" | "done" | "error";
+  detail: string;
+  completed: number;
+  total: number;
+  error: string | null;
+}
+
+export interface RecommendedModel {
+  name: string;
+  download_gb: number;
+  ram_gb: number;
+  note: string;
+}
+
+export interface SetupStatus {
+  engine: "ollama" | "heuristic";
+  detail: string;
+  model_ready: boolean;
+  ollama: "running" | "stopped" | "missing";
+  ollama_download_url: string;
+  model: string;
+  pulled: string[];
+  recommended: RecommendedModel[];
+  pull: PullState;
+}
+
+export interface Settings {
+  model: string;
+  think: boolean;
+}

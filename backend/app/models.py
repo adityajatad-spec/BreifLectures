@@ -66,3 +66,11 @@ class Job(BaseModel):
     total: int = 0
     error: str | None = None
     result: Analysis | None = None
+
+
+class LibraryItem(BaseModel):
+    video_id: str
+    title: str
+    duration: float
+    engine: str
+    analyzed_at: str

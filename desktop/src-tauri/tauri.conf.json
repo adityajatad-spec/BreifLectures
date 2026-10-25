@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "BriefLectures",
+  "version": "0.3.0",
+  "identifier": "com.brieflectures.desktop",
+  "build": {
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "make -C .. dev",
+    "beforeBuildCommand": "npm --prefix ../web run build",
+    "frontendDist": "../splash"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "BriefLectures",
+        "url": "index.html",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "category": "Education",
+    "shortDescription": "Watch lectures without the filler",
+    "longDescription": "Paste a YouTube lecture link; a local AI model finds the filler, logistics and repeats, and the player skips them.",
+    "copyright": "© 2026 BriefLectures",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/brief-api"],
+    "resources": {
+      "../../web/dist/": "web/"
+    },
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "hardenedRuntime": true,
+      "entitlements": "./Entitlements.plist",
+      "dmg": {
+        "windowSize": { "width": 660, "height": 400 },
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 }
+      }
+    }
+  }
+}

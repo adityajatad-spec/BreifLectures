@@ -3,6 +3,10 @@ from pathlib import Path
 
 DATA_DIR = Path(os.environ.get("BRIEF_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
 CACHE_DB = DATA_DIR / "cache.sqlite3"
+SETTINGS_FILE = DATA_DIR / "settings.json"
+
+# The desktop app points this at the bundled web build, so UI and API share one origin.
+STATIC_DIR = os.environ.get("BRIEF_STATIC_DIR") or None
 
 # "auto" uses the local model when Ollama is running and the model is pulled, otherwise the heuristic.
 ANALYZER = os.environ.get("BRIEF_ANALYZER", "auto")  # auto | ollama | heuristic
@@ -22,7 +26,7 @@ TRANSCRIPT_LANGUAGES = [
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
-        "BRIEF_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,tauri://localhost"
+        "BRIEF_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",")
     if origin.strip()
 ]

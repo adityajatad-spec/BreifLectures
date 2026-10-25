@@ -4,7 +4,7 @@ import sqlite3
 from contextlib import closing
 
 from .config import CACHE_DB
-from .models import Analysis
+from .models import Analysis, LibraryItem
 
 
 def _connect() -> sqlite3.Connection:
@@ -33,3 +33,24 @@ def put(analysis: Analysis) -> None:
             "INSERT OR REPLACE INTO analyses (video_id, engine, body) VALUES (?, ?, ?)",
             (analysis.video_id, analysis.engine, analysis.model_dump_json()),
         )
+
+
+def recent(limit: int = 100) -> list[LibraryItem]:
+    """Most recently analyzed lectures, one entry per video (newest engine wins)."""
+    with closing(_connect()) as conn:
+        rows = conn.execute("SELECT body, created_at FROM analyses ORDER BY created_at DESC, rowid DESC").fetchall()
+    items: dict[str, LibraryItem] = {}
+    for body, created_at in rows:
+        a = Analysis.model_validate_json(body)
+        if a.video_id not in items:
+            items[a.video_id] = LibraryItem(
+                video_id=a.video_id, title=a.title, duration=a.duration, engine=a.engine, analyzed_at=created_at
+            )
+        if len(items) >= limit:
+            break
+    return list(items.values())
+
+
+def delete(video_id: str) -> None:
+    with closing(_connect()) as conn, conn:
+        conn.execute("DELETE FROM analyses WHERE video_id = ?", (video_id,))

@@ -6,7 +6,14 @@ skips them for you. No API keys, and nothing leaves your computer except the You
 
 > Working name. Branding comes later. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and roadmap.
 
-## Run it (macOS / Linux)
+## The macOS app
+
+Download the `.dmg` from the GitHub release (or the **Release (macOS)** workflow's artifacts),
+drag BriefLectures to Applications, and open it. The first screen walks you through
+installing Ollama and downloading the model. To build it yourself on a Mac: `make setup && make app`.
+See [docs/RELEASING.md](docs/RELEASING.md) for signing and releases.
+
+## Run it for development (macOS / Linux)
 
 You need Python 3.11+, Node 20+ and [Ollama](https://ollama.com/download).
 
@@ -20,13 +27,16 @@ Without Ollama the app still works, using a rough offline heuristic instead of A
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#local-model-sizing-for-a-16-gb-machine) for model sizing.
 
 Paste a link such as `https://www.youtube.com/watch?v=...` and press **Shorten**.
+`make app-dev` does the same inside the desktop window (needs Rust).
 
 ## Layout
 
 ```
 backend/   FastAPI service: captions → segments → labels (local model or heuristic) → SQLite cache
-web/       React + Vite UI: cut picker, auto-skipping YouTube player, timeline
-docs/      Architecture and roadmap
+web/       React + Vite UI: setup, library, cut picker, auto-skipping YouTube player, timeline
+desktop/   Tauri 2 macOS app: Rust shell, splash page, icons, bundling config
+scripts/   build-sidecar.sh packages the backend into one binary for the app
+docs/      Architecture, roadmap, releasing
 ```
 
 ## Configuration (environment variables)

@@ -27,31 +27,40 @@ right-click → Open, ad-hoc sign it: `APPLE_SIGNING_IDENTITY=- make app`.
 
 ### Signing and notarization (needed for public distribution)
 
-Without these the workflow still succeeds, but the app is only ad-hoc signed and macOS will
-warn users that it "can't be checked for malicious software". To fix that:
+Without these secrets the workflow still succeeds, but the app is only ad-hoc signed, and
+macOS warns users that it "can't be checked for malicious software". If the secrets exist
+but can't be used, a manual run warns and builds an ad-hoc test app anyway; a tag build
+fails instead, so a release never ships unsigned by accident.
 
 1. Join the Apple Developer Program ($99/year).
-2. Create a **Developer ID Application** certificate. Export it from Keychain Access as a `.p12`.
-3. Create an **app-specific password** for your Apple ID at appleid.apple.com.
-4. Add these repository secrets (Settings → Secrets and variables → Actions):
+2. In your Apple Developer account, create a **Developer ID Application** certificate. Not
+   "Apple Development" and not "Apple Distribution": those can't sign apps distributed
+   outside the App Store. Download it and double-click it so it lands in Keychain Access.
+3. In Keychain Access → **My Certificates**, expand the certificate to check that a private
+   key sits under it. Right-click the certificate → **Export…** → format **.p12**, and set a
+   password. (Exporting a `.cer`, or a certificate without its key, is the usual cause of
+   "Unable to decode the provided data".)
+4. Copy the file as base64: `base64 -i Certificates.p12 | pbcopy`
+5. Create an **app-specific password** for your Apple ID at appleid.apple.com.
+6. Add these repository secrets (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |---|---|
-| `APPLE_CERTIFICATE` | `base64 -i certificate.p12` output |
-| `APPLE_CERTIFICATE_PASSWORD` | the `.p12` export password |
-| `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: Your Name (TEAMID)` |
-| `APPLE_ID` | your Apple ID email |
-| `APPLE_PASSWORD` | the app-specific password |
+| `APPLE_CERTIFICATE` | the base64 text from step 4 (paste exactly; spaces and line breaks are ignored) |
+| `APPLE_CERTIFICATE_PASSWORD` | the password from step 3 |
+| `APPLE_SIGNING_IDENTITY` | optional; picked from the certificate if left out. If set, it must match exactly, e.g. `Developer ID Application: Your Name (TEAMID)` |
+| `APPLE_ID` | your Apple ID email (for notarization) |
+| `APPLE_PASSWORD` | the app-specific password from step 5 |
 | `APPLE_TEAM_ID` | your 10-character team ID |
 
-The Tauri CLI picks these up and signs the app and the bundled engine, then notarizes the
-result. `scripts/build-sidecar.sh` also signs the Python libraries inside the engine with the
-same identity.
+`scripts/macos-signing.sh` loads the certificate into a temporary keychain before anything is
+built. It names the exact problem in the run's summary if something is wrong. Both the
+bundled engine (`scripts/build-sidecar.sh`) and the app are then signed with that identity,
+and Tauri sends the result to Apple for notarization.
 
-> **Not yet verified.** This sandbox can't run macOS, so nothing here has been signed or
-> notarized for real. The first signed CI run is the real test. If the notarized app shows
-> "The analysis engine stopped" at launch, the engine's libraries are being refused by the
-> hardened runtime: check `~/Library/Logs/com.brieflectures.desktop/backend.log` and
+> **Not yet verified.** No signed build has run yet. If the notarized app shows
+> "The analysis engine stopped" at launch, the hardened runtime is refusing the engine's
+> libraries: check `~/Library/Logs/com.brieflectures.desktop/backend.log` and
 > `desktop/src-tauri/Entitlements.plist`.
 
 ## Bumping the version

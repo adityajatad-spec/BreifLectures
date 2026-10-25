@@ -3,8 +3,9 @@ name: Release (macOS)
 # Builds BriefLectures.app + .dmg for Apple Silicon.
 #   - Run it by hand (Actions → Release (macOS) → Run workflow) to get a .dmg as a build artifact.
 #   - Push a tag like v0.3.0 to also attach it to a draft GitHub release.
-# Signing and notarization switch on automatically once the Apple secrets below exist;
-# without them the app is ad-hoc signed (fine for testing, but Gatekeeper will warn users).
+# Signing and notarization switch on automatically once the Apple secrets exist (see
+# docs/RELEASING.md). Without them, or if the certificate can't be used, a manual run builds
+# an ad-hoc signed test app with a warning; a tag build fails instead of shipping unsigned.
 
 on:
   workflow_dispatch:
@@ -17,12 +18,8 @@ permissions:
 jobs:
   macos:
     runs-on: macos-15
-    env:
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    # Secrets go only to the steps that use them. Not at job level on purpose: job-level env
+    # would override the identity the signing step writes to $GITHUB_ENV.
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -36,14 +33,14 @@ jobs:
         with:
           workspaces: desktop/src-tauri
 
-      - name: Choose signing identity
-        run: |
-          if [ -n "$APPLE_CERTIFICATE" ]; then
-            echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
-          else
-            echo "No Apple certificate configured: ad-hoc signing."
-            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
-          fi
+      # Before the engine build: the engine is signed first, so the certificate must be loaded.
+      - name: Load the signing certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          STRICT: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
+        run: scripts/macos-signing.sh
 
       - name: Install dependencies
         run: |
@@ -60,12 +57,26 @@ jobs:
 
       - name: Build, sign and notarize the app
         working-directory: desktop
-        run: npm run build -- --bundles app,dmg
+        # The certificate is already in the keychain, so APPLE_CERTIFICATE is deliberately not
+        # passed here (Tauri would import it a second time).
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ "$SIGNING_MODE" = adhoc ]; then
+            unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID  # Apple won't notarize an ad-hoc signature
+          fi
+          npm run build -- --bundles app,dmg
 
       - uses: actions/upload-artifact@v4
         with:
           name: BriefLectures-macOS-arm64
           path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+
+      - name: Remove the signing keychain
+        if: always() && env.SIGNING_KEYCHAIN != ''
+        run: security delete-keychain "$SIGNING_KEYCHAIN"
 
       - name: Attach to a draft release
         if: startsWith(github.ref, 'refs/tags/v')

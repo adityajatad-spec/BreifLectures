@@ -44,7 +44,7 @@ class Analysis(BaseModel):
     video_id: str
     title: str
     duration: float
-    engine: str  # "claude" or "heuristic"
+    engine: str  # "ollama" or "heuristic"
     summary: str = ""
     segments: list[Segment]
     chapters: list[Chapter] = []
@@ -53,3 +53,16 @@ class Analysis(BaseModel):
 class AnalyzeRequest(BaseModel):
     url: str
     force: bool = False  # bypass the cache
+
+
+class Job(BaseModel):
+    """Analysis runs in the background (a local model takes minutes); the client polls this."""
+
+    id: str
+    video_id: str
+    status: str  # queued | running | done | error
+    step: str = ""
+    done: int = 0
+    total: int = 0
+    error: str | None = None
+    result: Analysis | None = None

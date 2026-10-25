@@ -30,8 +30,19 @@ export interface Analysis {
   video_id: string;
   title: string;
   duration: number;
-  engine: "claude" | "heuristic";
+  engine: "ollama" | "heuristic";
   summary: string;
   segments: Segment[];
   chapters: Chapter[];
+}
+
+export interface Job {
+  id: string;
+  video_id: string;
+  status: "queued" | "running" | "done" | "error";
+  step: string;
+  done: number;
+  total: number;
+  error: string | null;
+  result: Analysis | null;
 }

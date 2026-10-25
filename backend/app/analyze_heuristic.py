@@ -65,4 +65,4 @@ def analyze(segments: list[Segment]) -> tuple[list[Segment], str]:
         if seg.label == Label.core:
             seg.importance = min(1.0, 0.4 + 0.1 * len(words) / max(seg.end - seg.start, 1.0))
 
-    return segments, "Offline estimate — set ANTHROPIC_API_KEY for AI analysis."
+    return segments, "Offline estimate."

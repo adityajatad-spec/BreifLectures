@@ -53,6 +53,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .url-form button:disabled { opacity: 0.6; cursor: progress; }
 
 .banner { margin-top: 16px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+.banner.progress { display: grid; gap: 8px; color: var(--text); }
+.banner.progress progress { width: 100%; accent-color: var(--accent); }
+.banner.progress small { color: var(--muted); }
 .banner.error { color: var(--danger); border-color: var(--danger); }
 
 .empty { text-align: center; padding: 15vh 16px; }

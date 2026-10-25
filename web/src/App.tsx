@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { analyze } from "./lib/api";
 import { buildCut, CUTS, keptDuration, skipRanges, type CutId } from "./lib/cuts";
 import { clock, minutes } from "./lib/format";
-import type { Analysis } from "./lib/types";
+import type { Analysis, Job } from "./lib/types";
 import { CutPicker } from "./components/CutPicker";
 import { Player, type PlayerHandle } from "./components/Player";
 import { Timeline } from "./components/Timeline";
@@ -13,6 +13,7 @@ export default function App() {
   const [url, setUrl] = useState("");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cut, setCut] = useState<CutId>("no-filler");
   const [target, setTarget] = useState<number | null>(null); // null = pick a default per lecture
@@ -24,9 +25,10 @@ export default function App() {
     e.preventDefault();
     if (!url.trim()) return;
     setLoading(true);
+    setJob(null);
     setError(null);
     try {
-      const result = await analyze(url.trim());
+      const result = await analyze(url.trim(), setJob);
       setAnalysis(result);
       setTarget(null);
       setTime(0);
@@ -91,7 +93,15 @@ export default function App() {
         </section>
       )}
 
-      {loading && <div className="banner">Reading the transcript and finding what to skip… long lectures take a minute.</div>}
+      {loading && (
+        <div className="banner progress">
+          <span>{job?.step || "Starting…"}</span>
+          {job && job.total > 0 && (
+            <progress value={job.done} max={job.total} aria-label="Analysis progress" />
+          )}
+          <small>The AI runs on this computer, so a long lecture takes a few minutes. You only wait once per video.</small>
+        </div>
+      )}
 
       {analysis && (
         <main className="workspace">
@@ -106,7 +116,7 @@ export default function App() {
                 </span>
                 {saved > 30 && <span className="saved">saves {minutes(saved)}</span>}
                 <span className={`engine engine-${analysis.engine}`}>
-                  {analysis.engine === "claude" ? "AI analysis" : "Offline estimate"}
+                  {analysis.engine === "ollama" ? "Local AI" : "Offline estimate"}
                 </span>
                 <span className="rates">
                   {RATES.map((r) => (

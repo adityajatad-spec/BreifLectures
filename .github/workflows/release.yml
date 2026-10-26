@@ -55,6 +55,14 @@ jobs:
       - name: Build the bundled engine
         run: scripts/build-sidecar.sh
 
+      # Real speech in several languages through the packaged worker: a downloaded Whisper
+      # model, the bundled audio codecs, and language detection, all on macOS.
+      - name: Check speech-to-text
+        run: |
+          BIN="desktop/src-tauri/binaries/brief-transcribe-$(rustc --print host-tuple)"
+          "$BIN" --self-test
+          python3 scripts/speech-smoke.py "$BIN" base
+
       - name: Build, sign and notarize the app
         working-directory: desktop
         # The certificate is already in the keychain, so APPLE_CERTIFICATE is deliberately not

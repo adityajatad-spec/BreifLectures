@@ -48,6 +48,16 @@ class Analysis(BaseModel):
     summary: str = ""
     segments: list[Segment]
     chapters: list[Chapter] = []
+    # Where the words came from, e.g. "YouTube captions · Hindi (auto-generated)", and the
+    # languages spoken (ISO codes, most-spoken first).
+    transcript_source: str = ""
+    languages: list[str] = []
+
+
+class Transcript(BaseModel):
+    snippets: list[Snippet]
+    source: str
+    languages: list[str] = []
 
 
 class AnalyzeRequest(BaseModel):

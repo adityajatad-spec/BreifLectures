@@ -19,6 +19,17 @@ OLLAMA_THINK = os.environ.get("BRIEF_OLLAMA_THINK", "0") == "1"  # better labels
 # Unload the model soon after a job so the RAM goes back to the user.
 OLLAMA_KEEP_ALIVE = os.environ.get("BRIEF_OLLAMA_KEEP_ALIVE", "2m")
 
+# Lectures without captions are transcribed locally with Whisper (any language, or a mix).
+# The desktop app points TRANSCRIBER at its bundled brief-transcribe binary.
+TRANSCRIBER = os.environ.get("BRIEF_TRANSCRIBER") or None
+WHISPER_MODEL = os.environ.get("BRIEF_WHISPER_MODEL", "small")
+WHISPER_DIR = DATA_DIR / "whisper"
+
+# Language for topics, chapter titles and summaries: a language name, or "auto" to use the
+# lecture's own (main) language.
+OUTPUT_LANGUAGE = os.environ.get("BRIEF_OUTPUT_LANGUAGE", "English")
+
+# Captions in these languages are preferred when a video has several; otherwise any are used.
 TRANSCRIPT_LANGUAGES = [
     lang.strip() for lang in os.environ.get("BRIEF_LANGUAGES", "en,en-US,en-GB").split(",") if lang.strip()
 ]

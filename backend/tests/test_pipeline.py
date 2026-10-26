@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import analyze_heuristic, config, main, youtube
-from app.models import Label, Snippet
+from app.models import Label, Snippet, Transcript
 from app.segmenter import build_segments
 
 from .fake_ollama import FakeOllama
@@ -24,6 +24,10 @@ def lecture() -> list[Snippet]:
         (46.0, "To recap: follow the negative gradient, scaled by the learning rate."),
     ]
     return [Snippet(start=s, duration=4.0, text=t) for s, t in lines]
+
+
+def captions() -> Transcript:
+    return Transcript(snippets=lecture(), source="YouTube captions · English", languages=["en"])
 
 
 def test_segments_are_contiguous_and_capture_silence():
@@ -56,7 +60,7 @@ def wait_for(client, job):
 @pytest.fixture
 def stubbed(monkeypatch, tmp_path):
     monkeypatch.setattr(main.cache, "CACHE_DB", tmp_path / "cache.sqlite3")
-    monkeypatch.setattr(youtube, "fetch_transcript", lambda vid, langs: lecture())
+    monkeypatch.setattr(youtube, "fetch_transcript", lambda vid, langs: captions())
     monkeypatch.setattr(youtube, "fetch_title", lambda vid: "Gradient Descent")
     return TestClient(main.app, base_url="http://127.0.0.1")
 

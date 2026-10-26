@@ -15,8 +15,11 @@ import ollama
 
 from . import analyze_heuristic, config
 from .models import Chapter, Label, Segment
+from .segmenter import approx_tokens
 
-WINDOW_WORDS = 1800
+# ~15 min of speech in English. Measured in tokens, not words, so Chinese, Japanese or Thai
+# (no spaces between words) get windows of the same real size as English.
+WINDOW_TOKENS = 2600
 WINDOW_MAX_SEGMENTS = 40
 OUTLINE_MAX = 40
 MIN_CHAPTER_GAP = 60.0
@@ -31,12 +34,23 @@ You get a slice of the transcript as numbered segments. For EVERY segment give:
   tangent: off-topic story or digression
   admin: logistics such as homework, exams, mic checks, screen sharing, waiting
   promo: sponsors, "like and subscribe"
-  filler: stalling, ums, setup chatter
+  filler: stalling, verbal fillers in any language ("um", "matlab", "este", "えーと"), setup chatter
 - importance: 0-10, how much a student loses by skipping it (10 = essential)
 - topic: at most 5 words
-Also list where new sections start, with a short title (at most 6 words)."""
+Also list where new sections start, with a short title (at most 6 words).
+
+The lecture can be in any language, and can switch languages, even mid-sentence (for
+example Hindi and English). The text comes from automatic captions or speech recognition:
+expect misheard words, missing punctuation and words written in another script, and judge
+what the speaker meant."""
 
 SUMMARY_SYSTEM = "Write a two-sentence summary of a lecture from its title and topic outline. Plain text, no preamble."
+
+
+def _output_language() -> str:
+    if config.OUTPUT_LANGUAGE.lower() == "auto":
+        return "the lecture's main language (the one spoken most)"
+    return config.OUTPUT_LANGUAGE
 
 ProgressFn = Callable[[int, int], None]
 
@@ -68,16 +82,16 @@ def windows(segments: list[Segment]) -> list[list[Segment]]:
     """Group speech segments into windows that fit comfortably in the context budget."""
     out: list[list[Segment]] = []
     current: list[Segment] = []
-    words = 0
+    size = 0
     for seg in segments:
         if seg.label == Label.silence:
             continue
-        n = len(seg.text.split())
-        if current and (words + n > WINDOW_WORDS or len(current) >= WINDOW_MAX_SEGMENTS):
+        n = approx_tokens(seg.text)
+        if current and (size + n > WINDOW_TOKENS or len(current) >= WINDOW_MAX_SEGMENTS):
             out.append(current)
-            current, words = [], 0
+            current, size = [], 0
         current.append(seg)
-        words += n
+        size += n
     if current:
         out.append(current)
     return out
@@ -130,6 +144,7 @@ def _render(title: str, window: list[Segment], outline: list[str]) -> str:
     covered = "\n".join(f"- {t}" for t in outline) if outline else "(nothing yet: this is the start)"
     lines = [f"Lecture: {title}", "", "Already covered earlier in this lecture:", covered, "", "Segments:"]
     lines += [f"[{s.id}] {_timestamp(s.start)} {s.text}" for s in window]
+    lines += ["", f"Write every topic and section title in {_output_language()}."]
     return "\n".join(lines)
 
 
@@ -207,6 +222,8 @@ def analyze(
     progress(len(parts), total)
     summary = ""
     if outline:
-        summary = _chat(llm, SUMMARY_SYSTEM, f"Title: {title}\nTopics in order:\n" + "\n".join(outline), None).strip()
+        prompt = f"Title: {title}\nTopics in order:\n" + "\n".join(outline)
+        prompt += f"\n\nWrite the summary in {_output_language()}."
+        summary = _chat(llm, SUMMARY_SYSTEM, prompt, None).strip()
     progress(total, total)
     return segments, chapters, summary

@@ -10,8 +10,8 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import analyze_heuristic, analyze_ollama, cache, config, ollama_setup, settings, youtube
-from .models import Analysis, AnalyzeRequest, Job, LibraryItem
+from . import analyze_heuristic, analyze_ollama, cache, config, ollama_setup, settings, speech, youtube
+from .models import Analysis, AnalyzeRequest, Job, LibraryItem, Transcript
 from .segmenter import build_segments
 
 log = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="BriefLectures API", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="BriefLectures API", version="0.4.0", lifespan=lifespan)
 # Only answer to loopback host names. Otherwise a web page could rebind its own domain to
 # 127.0.0.1 (DNS rebinding) and drive this API from the user's browser.
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
@@ -56,6 +56,37 @@ def health() -> dict:
     return {"ok": True, "engine": engine, "model": config.OLLAMA_MODEL, "detail": detail}
 
 
+SPEECH_STEPS = {
+    "audio": "Downloading the lecture's audio",
+    "model": "Downloading the speech model (first time only)",
+    "transcribe": "Turning speech into text",
+}
+
+
+def _transcript(job: Job) -> Transcript:
+    """YouTube's captions when there are any; otherwise speech-to-text on this computer."""
+    job.step = "Fetching captions"
+    try:
+        transcript = youtube.fetch_transcript(job.video_id, config.TRANSCRIPT_LANGUAGES)
+        if transcript.snippets:
+            return transcript
+        reason = "This video has no captions."
+    except youtube.NoCaptions as exc:
+        reason = str(exc)
+    log.info("No captions for %s (%s); transcribing the audio", job.video_id, reason)
+
+    def progress(stage: str, fraction: float) -> None:
+        job.step = f"{SPEECH_STEPS.get(stage, stage)} · {int(fraction * 100)}%"
+        job.done, job.total = int(fraction * 100), 100
+
+    try:
+        snippets, languages = speech.transcribe_video(job.video_id, progress)
+    except speech.SpeechError as exc:
+        raise youtube.YouTubeError(f"{reason} Transcribing the audio also failed: {exc}") from exc
+    # The UI appends the language names (it can name any language code in the user's locale).
+    return Transcript(snippets=snippets, source="Transcribed on this computer", languages=languages)
+
+
 def _run(job: Job, engine_info: tuple[str, str]) -> None:
     engine, detail = engine_info
 
@@ -64,12 +95,10 @@ def _run(job: Job, engine_info: tuple[str, str]) -> None:
         job.step = f"Analyzing part {min(done + 1, total)} of {total}" if done < total else "Finishing up"
 
     try:
-        job.status, job.step = "running", "Fetching captions"
-        snippets = youtube.fetch_transcript(job.video_id, config.TRANSCRIPT_LANGUAGES)
-        if not snippets:
-            raise youtube.YouTubeError("This video has no captions to analyze.")
+        job.status = "running"
+        transcript = _transcript(job)
         title = youtube.fetch_title(job.video_id)
-        segments = build_segments(snippets)
+        segments = build_segments(transcript.snippets)
         chapters = []
         if engine == "ollama":
             segments, chapters, summary = analyze_ollama.analyze(title, segments, progress)
@@ -84,6 +113,8 @@ def _run(job: Job, engine_info: tuple[str, str]) -> None:
             summary=summary,
             segments=segments,
             chapters=chapters,
+            transcript_source=transcript.source,
+            languages=transcript.languages,
         )
         cache.put(result)
         job.result, job.status, job.step = result, "done", ""
@@ -156,6 +187,7 @@ def setup_status() -> dict:
         "model": config.OLLAMA_MODEL,
         "pulled": models or [],
         "recommended": ollama_setup.RECOMMENDED,
+        "speech_models": speech.MODELS,
         "pull": ollama_setup.pull_state(),
     }
 

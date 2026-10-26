@@ -13,10 +13,24 @@ log = logging.getLogger(__name__)
 class Settings(BaseModel):
     model: str
     think: bool
+    # Defaults keep settings files saved by older versions loading.
+    whisper_model: str = "small"
+    output_language: str = "English"
 
 
 def current() -> Settings:
-    return Settings(model=config.OLLAMA_MODEL, think=config.OLLAMA_THINK)
+    return Settings(
+        model=config.OLLAMA_MODEL,
+        think=config.OLLAMA_THINK,
+        whisper_model=config.WHISPER_MODEL,
+        output_language=config.OUTPUT_LANGUAGE,
+    )
+
+
+def _apply(s: Settings) -> None:
+    config.OLLAMA_MODEL, config.OLLAMA_THINK = s.model.strip(), s.think
+    config.WHISPER_MODEL = s.whisper_model.strip() or "small"
+    config.OUTPUT_LANGUAGE = s.output_language.strip() or "English"
 
 
 def load() -> None:
@@ -27,11 +41,11 @@ def load() -> None:
     except ValueError:
         log.warning("Ignoring unreadable %s", config.SETTINGS_FILE)
         return
-    config.OLLAMA_MODEL, config.OLLAMA_THINK = saved.model, saved.think
+    _apply(saved)
 
 
 def save(new: Settings) -> Settings:
-    config.OLLAMA_MODEL, config.OLLAMA_THINK = new.model.strip(), new.think
+    _apply(new)
     config.SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
     config.SETTINGS_FILE.write_text(json.dumps(current().model_dump(), indent=2))
     return current()

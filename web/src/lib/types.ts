@@ -34,6 +34,8 @@ export interface Analysis {
   summary: string;
   segments: Segment[];
   chapters: Chapter[];
+  transcript_source: string;
+  languages: string[];
 }
 
 export interface Job {
@@ -71,6 +73,13 @@ export interface RecommendedModel {
   note: string;
 }
 
+export interface SpeechModel {
+  name: string;
+  download_mb: number;
+  ram_gb: number;
+  note: string;
+}
+
 export interface SetupStatus {
   engine: "ollama" | "heuristic";
   detail: string;
@@ -80,10 +89,13 @@ export interface SetupStatus {
   model: string;
   pulled: string[];
   recommended: RecommendedModel[];
+  speech_models: SpeechModel[];
   pull: PullState;
 }
 
 export interface Settings {
   model: string;
   think: boolean;
+  whisper_model: string;
+  output_language: string; // a language name, or "auto" for the lecture's own language
 }

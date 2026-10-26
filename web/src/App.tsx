@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { analyze, forgetLecture, getLibrary } from "./lib/api";
 import { buildCut, CUTS, keptDuration, skipRanges, type CutId } from "./lib/cuts";
-import { clock, minutes } from "./lib/format";
+import { clock, minutes, transcriptLabel } from "./lib/format";
 import { load, save } from "./lib/platform";
 import type { Analysis, Job, LibraryItem } from "./lib/types";
 import { CutPicker } from "./components/CutPicker";
@@ -202,6 +202,9 @@ export default function App() {
                   Re-analyze
                 </button>
               </div>
+              {analysis.transcript_source && (
+                <p className="source">{transcriptLabel(analysis.transcript_source, analysis.languages ?? [])}</p>
+              )}
               {analysis.summary && <p className="summary">{analysis.summary}</p>}
             </div>
           </div>

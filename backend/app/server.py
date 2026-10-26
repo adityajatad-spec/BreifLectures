@@ -48,6 +48,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--static-dir", help="serve the web UI from here")
     parser.add_argument("--log-dir")
     parser.add_argument("--parent-pid", type=int)
+    parser.add_argument("--transcriber", help="the brief-transcribe binary, for lectures without captions")
     args = parser.parse_args(argv)
 
     # config reads these at import time, so set them before importing the app.
@@ -55,6 +56,8 @@ def main(argv: list[str] | None = None) -> None:
         os.environ["BRIEF_DATA_DIR"] = args.data_dir
     if args.static_dir:
         os.environ["BRIEF_STATIC_DIR"] = args.static_dir
+    if args.transcriber:
+        os.environ["BRIEF_TRANSCRIBER"] = args.transcriber
     _setup_logging(args.log_dir)
 
     import uvicorn

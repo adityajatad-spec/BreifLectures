@@ -3,6 +3,11 @@
 import re
 
 from .models import Label, Segment
+from .segmenter import approx_tokens
+
+# Speech density in model tokens per second works in every script; English lectures run
+# around 3-4. Well below 1 means mostly pauses.
+SPARSE_TOKENS_PER_SEC = 0.8
 
 FILLER_WORDS = re.compile(r"\b(um+|uh+|er+|hmm+|you know|i mean|like|sort of|kind of|basically|actually)\b", re.I)
 
@@ -35,6 +40,10 @@ PATTERNS: list[tuple[Label, re.Pattern[str]]] = [
 ]
 
 
+def _density(seg: Segment) -> float:
+    return approx_tokens(seg.text) / max(seg.end - seg.start, 1.0)
+
+
 def analyze(segments: list[Segment]) -> tuple[list[Segment], str]:
     for seg in segments:
         if seg.label == Label.silence:
@@ -47,8 +56,7 @@ def analyze(segments: list[Segment]) -> tuple[list[Segment], str]:
                 break
         else:
             filler_ratio = len(FILLER_WORDS.findall(seg.text)) / max(len(words), 1)
-            words_per_sec = len(words) / max(seg.end - seg.start, 1.0)
-            if filler_ratio > 0.15 or words_per_sec < 0.6:
+            if filler_ratio > 0.15 or _density(seg) < SPARSE_TOKENS_PER_SEC:
                 seg.label = Label.filler
 
         seg.importance = {
@@ -63,6 +71,6 @@ def analyze(segments: list[Segment]) -> tuple[list[Segment], str]:
         }.get(seg.label, 0.5)
         # Denser speech tends to carry more content.
         if seg.label == Label.core:
-            seg.importance = min(1.0, 0.4 + 0.1 * len(words) / max(seg.end - seg.start, 1.0))
+            seg.importance = min(1.0, 0.4 + 0.075 * _density(seg))
 
     return segments, "Offline estimate."

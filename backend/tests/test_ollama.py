@@ -2,6 +2,7 @@ import pytest
 
 from app import analyze_ollama, config
 from app.models import Label, Segment
+from app.segmenter import approx_tokens
 
 from .fake_ollama import FakeOllama
 
@@ -32,7 +33,7 @@ def test_windows_respect_budget_and_skip_silence():
     parts = analyze_ollama.windows(make_lecture())
     assert len(parts) > 1
     for window in parts:
-        assert sum(len(s.text.split()) for s in window) <= analyze_ollama.WINDOW_WORDS
+        assert sum(approx_tokens(s.text) for s in window) <= analyze_ollama.WINDOW_TOKENS
         assert len(window) <= analyze_ollama.WINDOW_MAX_SEGMENTS
         assert all(s.label != Label.silence for s in window)
 

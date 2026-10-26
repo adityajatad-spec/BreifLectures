@@ -50,7 +50,9 @@ jobs:
         # tauri-build checks that the bundled binary exists; the real one is built in release.yml.
         run: |
           mkdir -p desktop/src-tauri/binaries
-          touch "desktop/src-tauri/binaries/brief-api-$(rustc --print host-tuple)"
+          for name in brief-api brief-transcribe; do
+            touch "desktop/src-tauri/binaries/$name-$(rustc --print host-tuple)"
+          done
       - name: Clippy
         working-directory: desktop/src-tauri
         run: cargo clippy --all-targets -- -D warnings

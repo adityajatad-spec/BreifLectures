@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { getSettings, getSetup, saveSettings } from "../lib/api";
-import type { RecommendedModel, Settings } from "../lib/types";
+import type { RecommendedModel, Settings, SpeechModel } from "../lib/types";
+
+// Any language works ("auto" keeps the lecture's own); these are just quick picks.
+const OUTPUT_LANGUAGES = [
+  "English", "Hindi", "Spanish", "French", "German", "Portuguese", "Italian", "Russian", "Arabic",
+  "Bengali", "Marathi", "Tamil", "Telugu", "Kannada", "Gujarati", "Urdu", "Punjabi", "Malayalam",
+  "Chinese", "Japanese", "Korean", "Indonesian", "Vietnamese", "Thai", "Turkish", "Persian", "Swahili",
+];
 
 interface Props {
   open: boolean;
@@ -12,6 +19,7 @@ export function SettingsDialog({ open, onClose }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [recommended, setRecommended] = useState<RecommendedModel[]>([]);
   const [pulled, setPulled] = useState<string[]>([]);
+  const [speechModels, setSpeechModels] = useState<SpeechModel[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,6 +33,7 @@ export function SettingsDialog({ open, onClose }: Props) {
           setSettings(s);
           setRecommended(setup.recommended);
           setPulled(setup.pulled);
+          setSpeechModels(setup.speech_models);
         })
         .catch((err: Error) => setError(err.message));
     } else if (!open && el.open) {
@@ -100,6 +109,43 @@ export function SettingsDialog({ open, onClose }: Props) {
                 <small>Somewhat better labels, but analysis takes several times longer.</small>
               </span>
             </label>
+            <label className="field">
+              <span>Write chapter titles and summaries in</span>
+              <select
+                value={settings.output_language}
+                onChange={(e) => setSettings({ ...settings, output_language: e.target.value })}
+              >
+                <option value="auto">The lecture's own language</option>
+                {[...new Set([settings.output_language, ...OUTPUT_LANGUAGES])]
+                  .filter((l) => l !== "auto")
+                  .map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+              </select>
+              <small>Lectures in any language work, including ones that mix languages.</small>
+            </label>
+            <fieldset>
+              <legend>Speech-to-text, for lectures without captions</legend>
+              {speechModels.map((m) => (
+                <label key={m.name} className="model-option">
+                  <input
+                    type="radio"
+                    name="whisper"
+                    checked={settings.whisper_model === m.name}
+                    onChange={() => setSettings({ ...settings, whisper_model: m.name })}
+                  />
+                  <span>
+                    <strong>Whisper {m.name}</strong>
+                    <small>
+                      {m.note} · {m.download_mb >= 1000 ? `${(m.download_mb / 1000).toFixed(1)} GB` : `${m.download_mb} MB`}{" "}
+                      download on first use · ~{m.ram_gb} GB memory
+                    </small>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
             <p className="hint">Lectures you've already analyzed keep their results. Use “Re-analyze” to redo one.</p>
           </>
         ) : (

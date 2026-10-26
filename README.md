@@ -2,7 +2,9 @@
 
 Paste a YouTube lecture link and pick how short you want it. A local AI model running on
 your own machine finds the filler, the logistics and the parts that repeat, and the player
-skips them for you. No API keys, and nothing leaves your computer except the YouTube requests.
+skips them for you. Lectures in any language work, including ones that mix languages; ones
+without captions are transcribed on your computer. No API keys, and nothing leaves your
+computer except the YouTube requests.
 
 > Working name. Branding comes later. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and roadmap.
 
@@ -35,7 +37,7 @@ Paste a link such as `https://www.youtube.com/watch?v=...` and press **Shorten**
 backend/   FastAPI service: captions → segments → labels (local model or heuristic) → SQLite cache
 web/       React + Vite UI: setup, library, cut picker, auto-skipping YouTube player, timeline
 desktop/   Tauri 2 macOS app: Rust shell, splash page, icons, bundling config
-scripts/   build-sidecar.sh packages the backend into one binary for the app
+scripts/   build-sidecar.sh packages the backend into the app's two binaries; speech-smoke.py checks speech-to-text
 docs/      Architecture, roadmap, releasing
 ```
 
@@ -49,7 +51,10 @@ docs/      Architecture, roadmap, releasing
 | `BRIEF_OLLAMA_THINK` | `0` | `1` lets the model think first: better labels, much slower |
 | `BRIEF_OLLAMA_KEEP_ALIVE` | `2m` | How long Ollama keeps the model in RAM after a job |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Where Ollama is listening |
-| `BRIEF_LANGUAGES` | `en,en-US,en-GB` | Caption languages to try, in order |
+| `BRIEF_LANGUAGES` | `en,en-US,en-GB` | Caption languages preferred when a video has several (any language is used otherwise) |
+| `BRIEF_OUTPUT_LANGUAGE` | `English` | Language for chapter titles and summaries; `auto` = the lecture's own |
+| `BRIEF_WHISPER_MODEL` | `small` | Speech-to-text model for lectures without captions (`small`, `medium`, `large-v3-turbo`) |
+| `BRIEF_TRANSCRIBER` | *(dev: `python -m app.transcribe`)* | Path to the `brief-transcribe` binary (set by the desktop app) |
 | `BRIEF_DATA_DIR` | `backend/data` | Where the SQLite cache lives |
 
 ## Tests

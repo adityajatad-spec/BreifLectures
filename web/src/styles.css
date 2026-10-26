@@ -154,7 +154,7 @@ button:disabled { opacity: 0.6; cursor: default; }
 .switch input { accent-color: var(--accent); width: 16px; height: 16px; }
 
 dialog.settings {
-  width: min(520px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border); border-radius: 16px;
+  width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 0; border: 1px solid var(--border); border-radius: 16px;
   background: var(--surface); color: var(--text);
 }
 dialog.settings::backdrop { background: rgba(0, 0, 0, 0.35); }
@@ -171,3 +171,12 @@ dialog.settings legend { font-weight: 600; margin-bottom: 8px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .dialog-actions button { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
 .dialog-actions button.primary { border: 0; background: var(--accent); color: var(--accent-text); }
+
+.source { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.field { display: grid; gap: 6px; }
+.field > span { font-weight: 600; }
+.field small { color: var(--muted); }
+.field select {
+  font: inherit; color: var(--text); background: var(--surface); padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 10px;
+}

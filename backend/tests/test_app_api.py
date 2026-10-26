@@ -15,6 +15,8 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "SETTINGS_FILE", tmp_path / "settings.json")
     monkeypatch.setattr(config, "OLLAMA_MODEL", "qwen3.5:4b")
     monkeypatch.setattr(config, "OLLAMA_THINK", False)
+    monkeypatch.setattr(config, "WHISPER_MODEL", "small")
+    monkeypatch.setattr(config, "OUTPUT_LANGUAGE", "English")
     return TestClient(main.app, base_url="http://127.0.0.1")
 
 
@@ -29,18 +31,26 @@ def analysis(video_id: str, engine: str, title: str = "T") -> Analysis:
 
 
 def test_settings_round_trip(client):
-    assert client.get("/api/settings").json() == {"model": "qwen3.5:4b", "think": False}
-    saved = client.put("/api/settings", json={"model": " qwen3:4b ", "think": True}).json()
-    assert saved == {"model": "qwen3:4b", "think": True}
-    assert config.OLLAMA_MODEL == "qwen3:4b"
+    defaults = {"model": "qwen3.5:4b", "think": False, "whisper_model": "small", "output_language": "English"}
+    assert client.get("/api/settings").json() == defaults
+    new = {"model": " qwen3:4b ", "think": True, "whisper_model": "large-v3-turbo", "output_language": "auto"}
+    saved = client.put("/api/settings", json=new).json()
+    assert saved == {**new, "model": "qwen3:4b"}
+    assert (config.OLLAMA_MODEL, config.WHISPER_MODEL, config.OUTPUT_LANGUAGE) == ("qwen3:4b", "large-v3-turbo", "auto")
     assert '"qwen3:4b"' in config.SETTINGS_FILE.read_text()
     assert client.put("/api/settings", json={"model": "  ", "think": False}).status_code == 400
 
 
 def test_saved_settings_load_on_startup(client):
+    # A settings file from an older version, without the speech and language fields.
     config.SETTINGS_FILE.write_text('{"model": "llama3.2:3b", "think": true}')
     with client:  # entering runs the lifespan
-        assert client.get("/api/settings").json() == {"model": "llama3.2:3b", "think": True}
+        assert client.get("/api/settings").json() == {
+            "model": "llama3.2:3b",
+            "think": True,
+            "whisper_model": "small",
+            "output_language": "English",
+        }
 
 
 def test_library_lists_and_forgets(client):

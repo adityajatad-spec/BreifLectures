@@ -12,15 +12,15 @@ from youtube_transcript_api import (
     IpBlocked,
     NoTranscriptFound,
     RequestBlocked,
-    Transcript,
     TranscriptList,
     TranscriptsDisabled,
     VideoUnavailable,
     VideoUnplayable,
     YouTubeTranscriptApi,
 )
+from youtube_transcript_api import Transcript as CaptionTrack
 
-from .models import Snippet
+from .models import Snippet, Transcript
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +29,10 @@ _ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 
 class YouTubeError(Exception):
     pass
+
+
+class NoCaptions(YouTubeError):
+    """YouTube has no usable captions for this video; speech-to-text can still work."""
 
 
 def parse_video_id(url: str) -> str:
@@ -87,7 +91,7 @@ def _explain(exc: Exception) -> str:
     return f"Couldn't get captions from YouTube ({type(exc).__name__}). Try again in a moment."
 
 
-def _choose(transcripts: TranscriptList, languages: list[str]) -> Transcript:
+def _choose(transcripts: TranscriptList, languages: list[str]) -> CaptionTrack:
     """The preferred language if there is one, else any captions, human-made before auto-generated."""
     try:
         return transcripts.find_transcript(languages)
@@ -98,28 +102,27 @@ def _choose(transcripts: TranscriptList, languages: list[str]) -> Transcript:
         return available[0]
 
 
-def _is_english(code: str) -> bool:
-    return code.split("-")[0].lower() == "en"
-
-
-def fetch_transcript(video_id: str, languages: list[str]) -> list[Snippet]:
+def fetch_transcript(video_id: str, languages: list[str]) -> Transcript:
+    # Captions stay in their original language. Machine-translating them would garble
+    # lectures that mix languages, and the model reads the original as it was spoken.
     try:
         chosen = _choose(YouTubeTranscriptApi().list(video_id), languages)
-        fetched = None
-        # The model labels English best, so ask YouTube to translate other languages.
-        english = next((t.language_code for t in chosen.translation_languages if _is_english(t.language_code)), None)
-        if not _is_english(chosen.language_code) and chosen.is_translatable and english:
-            try:
-                fetched = chosen.translate(english).fetch()
-                log.info("Using %s captions for %s, translated to English", chosen.language, video_id)
-            except Exception as exc:  # translation is a bonus: the original captions still work
-                log.warning("Translating %s captions failed (%s); using the original", chosen.language, exc)
-        if fetched is None:
-            fetched = chosen.fetch()
-            log.info("Using %s captions for %s", chosen.language, video_id)
-    except CouldNotRetrieveTranscript as exc:
-        raise YouTubeError(_explain(exc)) from exc
-    except Exception as exc:  # network failures and anything else the library lets through
-        log.exception("Fetching captions for %s failed", video_id)
-        raise YouTubeError(_explain(exc)) from exc
-    return [Snippet(start=s.start, duration=s.duration, text=s.text) for s in fetched]
+        fetched = chosen.fetch()
+    except (VideoUnavailable, VideoUnplayable, AgeRestricted, InvalidVideoId) as exc:
+        raise YouTubeError(_explain(exc)) from exc  # the audio won't be reachable either
+    except Exception as exc:
+        # No captions, blocked or failed caption requests: the audio may still be reachable,
+        # so speech-to-text gets a try.
+        if not isinstance(exc, CouldNotRetrieveTranscript):
+            log.exception("Fetching captions for %s failed", video_id)
+        raise NoCaptions(_explain(exc)) from exc
+
+    language = chosen.language
+    if chosen.is_generated and "auto" not in language.lower():
+        language += " (auto-generated)"
+    log.info("Using %s captions for %s", language, video_id)
+    return Transcript(
+        snippets=[Snippet(start=s.start, duration=s.duration, text=s.text) for s in fetched],
+        source=f"YouTube captions · {language}",
+        languages=[chosen.language_code],
+    )

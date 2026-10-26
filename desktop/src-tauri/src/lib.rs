@@ -40,6 +40,12 @@ fn start_backend(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = paths.app_data_dir()?;
     let log_dir = paths.app_log_dir()?;
     let web_dir = paths.resolve("web", BaseDirectory::Resource)?;
+    // Bundled sidecars sit next to the app's own executable (Contents/MacOS on macOS).
+    let transcriber = std::env::current_exe()?.with_file_name(if cfg!(windows) {
+        "brief-transcribe.exe"
+    } else {
+        "brief-transcribe"
+    });
 
     let (mut events, child) = app
         .shell()
@@ -55,6 +61,8 @@ fn start_backend(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             web_dir.to_string_lossy().into_owned(),
             "--parent-pid".into(),
             std::process::id().to_string(),
+            "--transcriber".into(),
+            transcriber.to_string_lossy().into_owned(),
         ])
         .spawn()?;
     *app.state::<Backend>().child.lock().unwrap() = Some(child);

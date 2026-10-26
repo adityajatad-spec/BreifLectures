@@ -13,7 +13,9 @@ web app and macOS app instead of an extension.
      │
      ▼
 ┌─────────────────────────── backend (Python, FastAPI) ───────────────────────────┐
-│ youtube.py      captions (2–5 s lines) + title                                  │
+│ youtube.py      captions in any language (2–5 s lines) + title                  │
+│ speech.py   ┐   no captions? → brief-transcribe, a separate process:            │
+│ transcribe.py┘    yt-dlp audio → Whisper, language checked every 30 s           │
 │ segmenter.py    → ~20 s segments, gaps ≥ 3 s become "silence"                   │
 │ analyze_*.py    → every segment gets: label, importance 0–1, topic              │
 │                   local model via Ollama, ~15 min windows + running outline     │
@@ -52,7 +54,7 @@ The plan assumes an Apple Silicon Mac (M1 or newer), because the end product is 
 | Decision | Why |
 |---|---|
 | **Run the backend on your Mac, not in the cloud** | YouTube blocks caption scraping from datacenter IPs (`youtube-transcript-api` raises `IpBlocked` / `RequestBlocked` there, and this repo's cloud sandbox can't reach YouTube at all). From a home IP it just works. This makes desktop-first the easier path, not a detour. |
-| **Python for the backend** | The tools we need are Python-first: `youtube-transcript-api`, `yt-dlp`, and Whisper ports such as `mlx-whisper`, which runs very fast on Apple Silicon. |
+| **Python for the backend** | The tools we need are Python-first: `youtube-transcript-api`, `yt-dlp`, and Whisper (`faster-whisper`). |
 | **React + Vite + TypeScript for the UI** | The same UI becomes the macOS app's UI with no rewrite. |
 | **Tauri 2 for the macOS app** | Wraps the web UI in the system WKWebView, so the shell adds only a few MB (Electron adds 150 MB+). The Python backend ships inside as a sidecar binary built with PyInstaller (~25 MB). Tauri also handles code signing, notarization and the .dmg. |
 | **SQLite** | Zero-ops, a single file in `~/Library/Application Support/…` once it's an app. |
@@ -61,17 +63,73 @@ The plan assumes an Apple Silicon Mac (M1 or newer), because the end product is 
 Native SwiftUI would feel slightly more native, but it means writing the UI twice (web
 and Mac) and moving off Python's media tooling. That isn't worth it at this stage.
 
+## Any language, and mixed languages
+
+Every lecture should work, whatever it's in, including lectures that switch languages
+mid-sentence (Hindi and English, say).
+
+**Getting the words.**
+1. **YouTube captions** in whatever language the video has: the preferred languages
+   (`BRIEF_LANGUAGES`) first, then any human-made captions, then auto-generated ones. They
+   are used **as spoken, not machine-translated**: translation garbles mixed-language
+   speech, and the model reads the original fine.
+2. **No captions, or YouTube won't hand them over?** The engine runs `brief-transcribe`:
+   - **Audio:** yt-dlp downloads the audio only. YouTube now requires a JavaScript runtime
+     for that, so Deno is bundled.
+   - **Speech to text:** faster-whisper transcribes it on the CPU, int8, with voice-activity
+     detection. That covers about 99 languages, and with `multilingual=True` the language is
+     re-detected for every 30 s of audio, so code-switching lectures come out in whichever
+     language is being spoken.
+   - **Which languages:** detection is sampled at 8 points across the speech, which gives
+     the "Transcribed on this computer · Hindi, English" line in the UI.
+   - **Why a separate process:** it never loads into the engine, its memory is freed the
+     moment it exits, and the 180 MB of speech libraries only unpack when a lecture
+     actually needs them.
+   - **Model choice** (Settings): Whisper `small` by default (484 MB, ~1 GB RAM); `medium`
+     and `large-v3-turbo` are more accurate for less common languages and mixed speech, and
+     slower. The model downloads on first use.
+
+**Reading them.**
+- **The prompt** tells the model the lecture may be in any language or switch languages,
+  and that the text may contain misheard words or words written in another script.
+  Settings → "Write chapter titles and summaries in" picks the output language: English by
+  default, or the lecture's own.
+- **Chunk size** is measured in estimated tokens (UTF-8 bytes / 4), not words. Chinese,
+  Japanese and Thai have no spaces, so counting words would have put a whole lecture into
+  one window.
+- **Sentence ends** are recognized in other scripts too (`। ॥ 。 ！ ？ ؟ ۔`), and non-speech
+  caption notes in any language (`[संगीत]`, `[Música]`, `[音楽]`, `♪`) count as silence.
+- **The offline estimate** (no Ollama) measures speech density in tokens per second, so
+  dense Chinese or Hindi speech isn't mistaken for filler. Its keyword rules (homework,
+  "like and subscribe", …) are still English-only, so non-English lectures get only the
+  timing-based labels until local AI is set up.
+
+**Checked on every release build.** `scripts/speech-smoke.py` has macOS's built-in voices
+speak lecture passages in Spanish, French, German, Hindi, Japanese, Chinese and Hinglish,
+and the packaged worker must transcribe them and name the language. Spanish must pass;
+the others depend on which voices the build machine has.
+
+**Known limits.**
+- **Speed:** transcription is CPU-only and not yet measured on a real lecture; expect
+  minutes per hour of audio with `small`.
+- **Uncommon languages:** Whisper and a 4B model are weaker there than in widely spoken
+  ones; `large-v3-turbo` helps.
+- **yt-dlp goes stale:** YouTube changes often, so yt-dlp needs updating, which is a reason
+  for auto-updates.
+
 ## The desktop app
 
 ```
 BriefLectures.app
 ├── brieflectures      Rust shell (desktop/src-tauri/src/lib.rs)
-├── brief-api          the Python backend, one PyInstaller binary
+├── brief-api          the engine (Python, PyInstaller, ~26 MB)
+├── brief-transcribe   speech-to-text worker (Whisper + yt-dlp + Deno, ~180 MB)
 └── Resources/web/     the built web UI
 ```
 
 1. The window opens on a bundled splash page (`desktop/splash/`).
-2. The shell starts `brief-api --port 0 --data-dir … --static-dir Resources/web --parent-pid …`.
+2. The shell starts `brief-api --port 0 --data-dir … --static-dir Resources/web --parent-pid …
+   --transcriber <path to brief-transcribe>`.
 3. The engine binds a free port on 127.0.0.1 and prints `BRIEF_READY http://127.0.0.1:<port>`.
 4. The shell navigates the window there. From then on the engine serves **both the UI and the
    API from one origin**. That needs no CORS, the web code is identical in dev and in the
@@ -159,7 +217,8 @@ numbers to users.
 - [x] Tests for URL parsing, segmentation, the API and the cut policies
 
 **Phase 2: make it robust**
-- [ ] Lectures with no captions: `yt-dlp` pulls the audio and `mlx-whisper` transcribes it locally
+- [x] Lectures in any language, mixed languages, and lectures without captions (local Whisper)
+- [ ] Faster transcription on the Apple GPU (e.g. mlx-whisper) instead of the CPU
 - [ ] Sharper cut boundaries: `ffmpeg silencedetect` on the audio, snapping cuts to real pauses
 - [x] Background jobs with progress (polling; SSE later if needed)
 - [x] Windowed analysis with a running outline, so a small local model handles any length

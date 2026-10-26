@@ -28,6 +28,9 @@ PASSAGES = [
     ("hi_", "hi|en", False, "Toh aaj ka topic hai derivatives. Derivative matlab rate of change, samjhe?"),
 ]
 
+# Words that must survive transcription, whatever the language or script it comes out in.
+MUST_HEAR = {"hi|en": ("derivative", "डेरिवेटिव")}
+
 
 # Some languages must also come out in the right script (Whisper can write Hindi in Urdu
 # script, or Mandarin in Traditional characters).
@@ -84,10 +87,15 @@ def main() -> int:
                 continue
             heard = " ".join(s["text"] for s in result["snippets"])
             ok = bool(heard.strip()) and result["languages"][:1] and re.fullmatch(expected, result["languages"][0])
-            script = SCRIPTS.get(expected.split("|")[0])
+            # The script check applies to the language actually detected: a Hinglish clip that
+            # Whisper hears as mostly English comes out in English, which keeps the meaning.
+            script = SCRIPTS.get(result["languages"][0] if result["languages"] else "")
             if script and not script[1](heard):
                 ok = False
                 heard = f"[not {script[0]}] {heard}"
+            if expected in MUST_HEAR and not any(w in heard.lower() for w in MUST_HEAR[expected]):
+                ok = False
+                heard = f"[subject lost] {heard}"
             line = f"{expected:5} {voice:12} detected={result['languages']} text={heard[:80]!r}"
             if ok:
                 print(f"PASS  {line}")

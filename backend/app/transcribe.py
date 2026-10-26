@@ -161,13 +161,41 @@ def _languages(model, audio, speech_spans: list[tuple[float, float]]) -> list[st
     return [lang for lang, _ in counts.most_common()]
 
 
+# Whisper sometimes writes a language in the wrong script: spoken Hindi and Urdu sound
+# alike, so Hindi often comes out in Urdu script, and Mandarin in Traditional characters.
+# A short phrase in the expected script, passed as "hotwords" (repeated for every 30 s
+# window, unlike initial_prompt), steers it. The Hindi one mixes in English the way
+# lectures do, so English words in Hinglish stay in Latin letters.
+SCRIPT_HINTS = {
+    "hi": "नमस्ते दोस्तों, आज का topic है derivatives। चलिए शुरू करते हैं।",
+    "zh": "以下是普通话的句子，使用简体中文。",
+}
+
+
+def script_hint(languages: list[str]) -> str | None:
+    """The hint for the most-spoken language that needs one. Urdu speech keeps its own script."""
+    for lang in languages:
+        if lang == "ur":
+            return None
+        if lang in SCRIPT_HINTS:
+            return SCRIPT_HINTS[lang]
+    return None
+
+
 def transcribe(audio_path: Path, model_name: str, models_dir: Path, threads: int) -> tuple[list[dict], list[str]]:
     from faster_whisper import WhisperModel
     from faster_whisper.audio import decode_audio
+    from faster_whisper.vad import get_speech_timestamps
 
     model_path = ensure_model(model_name, models_dir)
     model = WhisperModel(str(model_path), device="cpu", compute_type="int8", cpu_threads=threads)
     audio = decode_audio(str(audio_path), sampling_rate=SAMPLE_RATE)
+
+    speech = [(s["start"] / SAMPLE_RATE, s["end"] / SAMPLE_RATE) for s in get_speech_timestamps(audio)]
+    if not speech:
+        raise TranscribeError("No speech was found in this lecture's audio.")
+    # Languages first: they decide the script hint, and the UI shows them.
+    languages = _languages(model, audio, speech)
 
     # multilingual: detect the language again for every 30 s of audio, so a lecture that
     # switches between, say, Hindi and English is transcribed in whichever is being spoken.
@@ -177,20 +205,19 @@ def transcribe(audio_path: Path, model_name: str, models_dir: Path, threads: int
         vad_filter=True,
         beam_size=1,
         condition_on_previous_text=False,  # stops one misheard phrase from repeating for minutes
+        hotwords=script_hint(languages),
     )
     snippets: list[dict] = []
-    spans: list[tuple[float, float]] = []
     for seg in segments:
         text = seg.text.strip()
         if text:
             snippets.append({"start": seg.start, "duration": max(0.0, seg.end - seg.start), "text": text})
-            spans.append((seg.start, seg.end))
         if info.duration:
             progress("transcribe", seg.end / info.duration)
     if not snippets:
         raise TranscribeError("No speech was found in this lecture's audio.")
     progress("transcribe", 1.0)
-    return snippets, _languages(model, audio, spans) or [info.language]
+    return snippets, languages or [info.language]
 
 
 # --- Self-test (run by the release build to check the packaged binary) ------------------

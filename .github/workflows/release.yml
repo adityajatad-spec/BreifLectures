@@ -61,7 +61,7 @@ jobs:
         run: |
           BIN="desktop/src-tauri/binaries/brief-transcribe-$(rustc --print host-tuple)"
           "$BIN" --self-test
-          python3 scripts/speech-smoke.py "$BIN" base
+          python3 scripts/speech-smoke.py "$BIN" small  # the default model users get
 
       - name: Build, sign and notarize the app
         working-directory: desktop

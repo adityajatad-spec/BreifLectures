@@ -80,8 +80,12 @@ mid-sentence (Hindi and English, say).
      detection. That covers about 99 languages, and with `multilingual=True` the language is
      re-detected for every 30 s of audio, so code-switching lectures come out in whichever
      language is being spoken.
-   - **Which languages:** detection is sampled at 8 points across the speech, which gives
-     the "Transcribed on this computer · Hindi, English" line in the UI.
+   - **Which languages:** detection is sampled at 8 points across the speech before
+     transcribing. That gives the "Transcribed on this computer · Hindi, English" line in
+     the UI, and picks a **script hint**: Whisper tends to write Hindi in Urdu script, and
+     Mandarin in Traditional characters, so a short phrase in Devanagari (mixed with English,
+     the way Hinglish lectures speak) or in Simplified Chinese steers every 30 s window.
+     The first macOS speech check showed the Urdu-script problem; the check now fails on it.
    - **Why a separate process:** it never loads into the engine, its memory is freed the
      moment it exits, and the 180 MB of speech libraries only unpack when a lecture
      actually needs them.

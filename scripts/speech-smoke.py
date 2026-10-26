@@ -29,6 +29,14 @@ PASSAGES = [
 ]
 
 
+# Some languages must also come out in the right script (Whisper can write Hindi in Urdu
+# script, or Mandarin in Traditional characters).
+SCRIPTS = {
+    "hi": ("Devanagari", lambda t: any("\u0900" <= ch <= "\u097f" for ch in t)),
+    "zh": ("Simplified Chinese", lambda t: sum(ch in "们学习导数表示变" for ch in t) > sum(ch in "們學習導數錶示變" for ch in t)),
+}
+
+
 def voices() -> dict[str, str]:
     """First installed voice for each locale, e.g. {"es_ES": "Mónica"}."""
     out = subprocess.run(["say", "-v", "?"], capture_output=True, text=True, check=True).stdout
@@ -56,7 +64,7 @@ def transcribe(binary: str, audio: Path, model: str, models_dir: str) -> dict:
 
 def main() -> int:
     binary = sys.argv[1]
-    model = sys.argv[2] if len(sys.argv) > 2 else "base"
+    model = sys.argv[2] if len(sys.argv) > 2 else "small"
     available = voices()
     failures = 0
     with tempfile.TemporaryDirectory() as tmp:
@@ -76,6 +84,10 @@ def main() -> int:
                 continue
             heard = " ".join(s["text"] for s in result["snippets"])
             ok = bool(heard.strip()) and result["languages"][:1] and re.fullmatch(expected, result["languages"][0])
+            script = SCRIPTS.get(expected.split("|")[0])
+            if script and not script[1](heard):
+                ok = False
+                heard = f"[not {script[0]}] {heard}"
             line = f"{expected:5} {voice:12} detected={result['languages']} text={heard[:80]!r}"
             if ok:
                 print(f"PASS  {line}")

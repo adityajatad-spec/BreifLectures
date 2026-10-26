@@ -286,3 +286,24 @@ def test_audio_error_messages_drop_yt_dlp_boilerplate():
         '(caused by ProxyError("...")); please report this issue on  https://github.com/yt-dlp/yt-dlp/issues'
     )
     assert transcribe._readable(raw) == "[youtube] abc: Unable to download API page: ('Unable to connect to proxy', OSError('403'))"
+
+
+@pytest.mark.parametrize(
+    "languages, script",
+    [
+        (["hi"], "\u0900"),  # Devanagari block
+        (["en", "hi"], "\u0900"),  # Hinglish where English dominates still gets Devanagari
+        (["zh"], "简"),
+        (["ur", "hi"], None),  # Urdu speakers keep Urdu script
+        (["es", "fr"], None),
+        ([], None),
+    ],
+)
+def test_script_hint_steers_whisper_to_the_expected_script(languages, script):
+    hint = transcribe.script_hint(languages)
+    if script is None:
+        assert hint is None
+    elif script == "\u0900":
+        assert any("\u0900" <= ch <= "\u097f" for ch in hint)
+    else:
+        assert script in hint

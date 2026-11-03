@@ -39,7 +39,8 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          STRICT: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
+          # Set to 1 once the Apple signing secrets exist, so a release never ships unsigned by accident.
+          STRICT: '0'
         run: scripts/macos-signing.sh
 
       - name: Install dependencies
@@ -77,6 +78,10 @@ jobs:
           fi
           npm run build -- --bundles app,dmg
 
+      # A fixed name, so the website can link to releases/latest/download/BriefLectures.dmg.
+      - name: Name the installer
+        run: cp desktop/src-tauri/target/release/bundle/dmg/*.dmg BriefLectures.dmg
+
       - uses: actions/upload-artifact@v4
         with:
           name: BriefLectures-macOS-arm64
@@ -90,5 +95,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
-          files: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          files: BriefLectures.dmg

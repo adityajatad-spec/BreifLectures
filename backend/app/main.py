@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import analyze_heuristic, analyze_ollama, cache, config, ollama_setup, settings, speech, youtube
-from .models import Analysis, AnalyzeRequest, Job, LibraryItem, Transcript
+from .models import Analysis, AnalyzeRequest, Chapter, Job, LibraryItem, Segment, Transcript
 from .segmenter import build_segments
 
 log = logging.getLogger(__name__)
@@ -100,15 +100,34 @@ def _run(job: Job, engine_info: tuple[str, str]) -> None:
         title = youtube.fetch_title(job.video_id)
         segments = build_segments(transcript.snippets)
         chapters = []
+        duration = segments[-1].end if segments else 0.0
+
+        def publish(segs: list[Segment], chaps: list[Chapter], until: float) -> None:
+            # Deep copies: the analysis keeps editing its segments while this is being sent.
+            job.partial = Analysis(
+                video_id=job.video_id,
+                title=title,
+                duration=duration,
+                engine=engine,
+                segments=[s.model_copy() for s in segs],
+                chapters=[c.model_copy() for c in chaps],
+                transcript_source=transcript.source,
+                languages=transcript.languages,
+                analyzed_until=until,
+            )
+
         if engine == "ollama":
-            segments, chapters, summary = analyze_ollama.analyze(title, segments, progress)
+            # Watchable right away with the instant offline labels; the AI refines from the start.
+            instant, _ = analyze_heuristic.analyze([s.model_copy() for s in segments])
+            publish(instant, [], 0.0)
+            segments, chapters, summary = analyze_ollama.analyze(title, segments, progress, publish)
         else:
             segments, _ = analyze_heuristic.analyze(segments)
             summary = detail
         result = Analysis(
             video_id=job.video_id,
             title=title,
-            duration=segments[-1].end if segments else 0.0,
+            duration=duration,
             engine=engine,
             summary=summary,
             segments=segments,
@@ -117,7 +136,7 @@ def _run(job: Job, engine_info: tuple[str, str]) -> None:
             languages=transcript.languages,
         )
         cache.put(result)
-        job.result, job.status, job.step = result, "done", ""
+        job.result, job.partial, job.status, job.step = result, None, "done", ""
     except (youtube.YouTubeError, analyze_ollama.LocalModelError) as exc:
         job.status, job.error = "error", str(exc)
     except Exception as exc:  # surface anything unexpected instead of leaving the job "running" forever

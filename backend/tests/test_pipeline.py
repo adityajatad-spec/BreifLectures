@@ -102,3 +102,30 @@ def test_transcript_failure_becomes_job_error(stubbed, monkeypatch):
     monkeypatch.setattr(youtube, "fetch_transcript", boom)
     job = wait_for(stubbed, stubbed.post("/api/analyze", json={"url": "dQw4w9WgXcQ"}).json())
     assert job["status"] == "error" and "TranscriptsDisabled" in job["error"]
+
+
+def test_job_is_watchable_before_it_finishes(stubbed, monkeypatch):
+    with FakeOllama() as server:
+        orig = server.reply
+        server.reply = lambda body: (time.sleep(0.3), orig(body))[1]  # a slow model
+        monkeypatch.setattr(config, "OLLAMA_HOST", server.url)
+        monkeypatch.setattr(config, "OLLAMA_MODEL", "qwen3.5:4b")
+        monkeypatch.setattr(youtube, "fetch_transcript", lambda vid, langs: long_captions())
+        job = stubbed.post("/api/analyze", json={"url": "dQw4w9WgXcQ"}).json()
+        untils = []
+        deadline = time.time() + 20
+        while job["status"] in ("queued", "running"):
+            assert time.time() < deadline
+            if job.get("partial"):
+                untils.append(job["partial"]["analyzed_until"])
+            time.sleep(0.05)
+            job = stubbed.get(f"/api/jobs/{job['id']}").json()
+    assert job["status"] == "done" and job["partial"] is None
+    assert job["result"]["analyzed_until"] is None
+    assert untils[0] == 0.0  # instant offline labels, before the model has answered
+    assert untils == sorted(untils) and len(set(untils)) >= 3
+
+
+def long_captions() -> Transcript:
+    lines = [f"Lesson part {i}, " + "word " * 60 + "." for i in range(120)]
+    return Transcript(snippets=[Snippet(start=i * 8.0, duration=8.0, text=t) for i, t in enumerate(lines)], source="x")

@@ -79,7 +79,10 @@ class FakeOllama:
             segments.append({"id": int(seg_id), "label": label, "importance": importance, "topic": text.split(",")[0][:30]})
         if segments:
             sections.append({"segment_id": segments[0]["id"], "title": f"Part starting at {segments[0]['id']}"})
-        return json.dumps({"segments": segments, "sections": sections})
+        topics = [s.pop("topic") for s in segments if s["label"] == "core"][:5]
+        for s in segments:
+            s.pop("topic", None)
+        return json.dumps({"segments": segments, "sections": sections, "topics": topics})
 
     def __enter__(self):
         threading.Thread(target=self.server.serve_forever, daemon=True).start()

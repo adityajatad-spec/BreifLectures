@@ -52,6 +52,9 @@ class Analysis(BaseModel):
     # languages spoken (ISO codes, most-spoken first).
     transcript_source: str = ""
     languages: list[str] = []
+    # While the AI is still working: how far into the lecture (seconds) it has got. Segments
+    # after that carry the instant offline labels. None once the analysis is complete.
+    analyzed_until: float | None = None
 
 
 class Transcript(BaseModel):
@@ -76,6 +79,8 @@ class Job(BaseModel):
     total: int = 0
     error: str | None = None
     result: Analysis | None = None
+    # Watchable before the job finishes: offline labels first, then refined part by part.
+    partial: Analysis | None = None
 
 
 class LibraryItem(BaseModel):

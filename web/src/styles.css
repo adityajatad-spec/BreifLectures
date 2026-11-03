@@ -360,6 +360,13 @@ h1, h2, h3, p { margin: 0; }
 .tl-seg.skipped {
   background: repeating-linear-gradient(135deg, rgba(160, 159, 184, 0.28) 0 3px, transparent 3px 7px);
 }
+.tl-pending {
+  position: absolute; top: 0; bottom: 0; pointer-events: none; border-left: 1px dashed rgba(255, 255, 255, 0.5);
+  background: linear-gradient(90deg, rgba(7, 7, 12, 0.55), rgba(7, 7, 12, 0.35), rgba(7, 7, 12, 0.55));
+  background-size: 200% 100%; animation: flow 2s linear infinite; backdrop-filter: saturate(0.3);
+}
+.legend .kind-pending::before { background: linear-gradient(90deg, var(--faint), transparent); border: 1px dashed var(--muted); }
+.chip-live { gap: 8px; }
 .tl-head {
   position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; border-radius: 3px; background: #fff;
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.9), 0 0 24px rgba(139, 92, 246, 0.9); pointer-events: none; transition: left 0.2s linear;

@@ -9,6 +9,8 @@ emit valid labels and segment ids, which keeps small models on the rails.
 """
 
 import json
+import logging
+import time
 from collections.abc import Callable
 
 import ollama
@@ -16,6 +18,8 @@ import ollama
 from . import analyze_heuristic, config
 from .models import Chapter, Label, Segment
 from .segmenter import approx_tokens
+
+log = logging.getLogger(__name__)
 
 # ~15 min of speech in English. Measured in tokens, not words, so Chinese, Japanese or Thai
 # (no spaces between words) get windows of the same real size as English.
@@ -25,7 +29,7 @@ OUTLINE_MAX = 40
 MIN_CHAPTER_GAP = 60.0
 
 SYSTEM = """You label parts of a recorded lecture so students can skip what they don't need.
-You get a slice of the transcript as numbered segments. For EVERY segment give:
+You get a slice of the transcript as numbered segments. For EVERY segment, in order, give:
 - label, one of:
   core: new, essential material
   example: worked example or demo of the material
@@ -36,8 +40,8 @@ You get a slice of the transcript as numbered segments. For EVERY segment give:
   promo: sponsors, "like and subscribe"
   filler: stalling, verbal fillers in any language ("um", "matlab", "este", "えーと"), setup chatter
 - importance: 0-10, how much a student loses by skipping it (10 = essential)
-- topic: at most 5 words
-Also list where new sections start, with a short title (at most 6 words).
+Also list where new sections start, with a short title (at most 6 words), and the new
+topics this slice teaches (at most 5, each at most 5 words).
 
 The lecture can be in any language, and can switch languages, even mid-sentence (for
 example Hindi and English). The text comes from automatic captions or speech recognition:
@@ -53,6 +57,9 @@ def _output_language() -> str:
     return config.OUTPUT_LANGUAGE
 
 ProgressFn = Callable[[int, int], None]
+# Called after each window with the segments and chapters so far and how far (seconds)
+# the AI has got, so the lecture can be watched while the rest is analyzed.
+PartialFn = Callable[[list[Segment], list[Chapter], float], None]
 
 
 class LocalModelError(Exception):
@@ -112,9 +119,10 @@ def _schema(ids: list[int]) -> dict:
                         "id": {"type": "integer", "enum": ids},
                         "label": {"type": "string", "enum": labels},
                         "importance": {"type": "integer", "enum": list(range(11))},
-                        "topic": {"type": "string"},
                     },
-                    "required": ["id", "label", "importance", "topic"],
+                    # No per-segment topic: it was ~40% of what the model wrote, and writing is
+                    # where the time goes. Topics come from "topics" and section titles instead.
+                    "required": ["id", "label", "importance"],
                 },
             },
             "sections": {
@@ -128,8 +136,9 @@ def _schema(ids: list[int]) -> dict:
                     "required": ["segment_id", "title"],
                 },
             },
+            "topics": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
         },
-        "required": ["segments", "sections"],
+        "required": ["segments", "sections", "topics"],
     }
 
 
@@ -158,6 +167,7 @@ def _chat(llm: ollama.Client, system: str, prompt: str, schema: dict | None) -> 
             options={"num_ctx": config.OLLAMA_CTX, "temperature": 0},
             keep_alive=config.OLLAMA_KEEP_ALIVE,
         )
+        _log_timing(resp)
     except ConnectionError as exc:
         raise LocalModelError(f"Ollama isn't running at {config.OLLAMA_HOST}.") from exc
     except ollama.ResponseError as exc:
@@ -165,6 +175,26 @@ def _chat(llm: ollama.Client, system: str, prompt: str, schema: dict | None) -> 
             raise LocalModelError(f"Model not downloaded yet. Run: ollama pull {config.OLLAMA_MODEL}") from exc
         raise LocalModelError(f"Ollama error: {exc.error}") from exc
     return resp.message.content or ""
+
+
+def _log_timing(resp: ollama.ChatResponse) -> None:
+    """Where the time went, so slow analyses can be diagnosed from the log."""
+    ns = 1e9
+    try:
+        gen = resp.eval_count or 0
+        gen_s = (resp.eval_duration or 0) / ns
+        log.info(
+            "model call: %.1fs total (load %.1fs) · read %s tokens in %.1fs · wrote %s tokens in %.1fs (%.0f tok/s)",
+            (resp.total_duration or 0) / ns,
+            (resp.load_duration or 0) / ns,
+            resp.prompt_eval_count,
+            (resp.prompt_eval_duration or 0) / ns,
+            gen,
+            gen_s,
+            gen / gen_s if gen_s else 0,
+        )
+    except (AttributeError, TypeError):
+        pass
 
 
 def _label_window(llm: ollama.Client, title: str, window: list[Segment], outline: list[str]) -> dict:
@@ -177,11 +207,14 @@ def _label_window(llm: ollama.Client, title: str, window: list[Segment], outline
                 return data
         except json.JSONDecodeError:
             pass
-    return {"segments": [], "sections": []}  # keep the heuristic labels for this window
+    return {"segments": [], "sections": [], "topics": []}  # keep the heuristic labels for this window
 
 
 def analyze(
-    title: str, segments: list[Segment], progress: ProgressFn = lambda done, total: None
+    title: str,
+    segments: list[Segment],
+    progress: ProgressFn = lambda done, total: None,
+    on_partial: PartialFn | None = None,
 ) -> tuple[list[Segment], list[Chapter], str]:
     # Start from the heuristic so a window the model fumbles still has sensible labels.
     segments, _ = analyze_heuristic.analyze(segments)
@@ -192,9 +225,13 @@ def analyze(
     outline: list[str] = []
     chapters: list[Chapter] = []
 
+    started = time.monotonic()
     for i, window in enumerate(parts):
         progress(i, total)
+        t0 = time.monotonic()
         data = _label_window(llm, title, window, outline)
+        log.info("part %d/%d (%d segments, %.0f s of lecture) took %.1fs",
+                 i + 1, len(parts), len(window), window[-1].end - window[0].start, time.monotonic() - t0)
         allowed = {s.id for s in window}
         for item in data["segments"]:
             seg = by_id.get(item.get("id"))
@@ -205,9 +242,10 @@ def analyze(
                 seg.importance = max(0, min(10, int(item["importance"]))) / 10
             except (KeyError, ValueError, TypeError):
                 continue
-            seg.topic = str(item.get("topic", ""))[:60]
-            if seg.label in (Label.core, Label.example) and seg.topic and seg.topic.lower() not in map(str.lower, outline):
-                outline.append(seg.topic)
+        for topic in data.get("topics", []):
+            topic = str(topic).strip()[:60]
+            if topic and topic.lower() not in map(str.lower, outline):
+                outline.append(topic)
         outline = outline[-OUTLINE_MAX:]
 
         sections = [(by_id[sec["segment_id"]], str(sec.get("title", "")).strip())
@@ -219,6 +257,14 @@ def analyze(
                 continue
             chapters.append(Chapter(start=seg.start, title=title_text[:80]))
 
+        # Each segment's topic (timeline tooltip) is the section it falls in.
+        for seg in window:
+            current = [c.title for c in chapters if c.start <= seg.start]
+            seg.topic = current[-1] if current else ""
+        if on_partial:
+            on_partial(segments, chapters, window[-1].end)
+
+    log.info("labelled %d parts in %.1fs", len(parts), time.monotonic() - started)
     progress(len(parts), total)
     summary = ""
     if outline:

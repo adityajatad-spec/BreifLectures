@@ -6,6 +6,8 @@ interface Props {
   keep: boolean[];
   duration: number;
   time: number;
+  /** While the AI is still working: how far it has got. Beyond that, labels are provisional. */
+  analyzedUntil?: number | null;
   onSeek(seconds: number): void;
 }
 
@@ -23,7 +25,7 @@ const KIND: Record<Label, "core" | "example" | "recap" | "skip"> = {
 };
 
 // One bar per segment, coloured by kind; hatched and dimmed when the current cut skips it.
-export function Timeline({ segments, keep, duration, time, onSeek }: Props) {
+export function Timeline({ segments, keep, duration, time, analyzedUntil = null, onSeek }: Props) {
   if (!duration) return null;
   return (
     <div className="timeline-wrap">
@@ -37,6 +39,13 @@ export function Timeline({ segments, keep, duration, time, onSeek }: Props) {
             onClick={() => onSeek(s.start)}
           />
         ))}
+        {analyzedUntil != null && analyzedUntil < duration && (
+          <div
+            className="tl-pending"
+            style={{ left: `${(analyzedUntil / duration) * 100}%`, right: 0 }}
+            title="The AI hasn't reached this part yet"
+          />
+        )}
         <div className="tl-head" style={{ left: `${Math.min(time / duration, 1) * 100}%` }} />
       </div>
       <div className="timeline-meta">
@@ -48,6 +57,7 @@ export function Timeline({ segments, keep, duration, time, onSeek }: Props) {
           <span className="kind-example">Example</span>
           <span className="kind-recap">Recap</span>
           <span className="kind-skip">Skipped</span>
+          {analyzedUntil != null && <span className="kind-pending">Analyzing</span>}
         </span>
       </div>
     </div>

@@ -36,6 +36,8 @@ export interface Analysis {
   chapters: Chapter[];
   transcript_source: string;
   languages: string[];
+  /** Seconds the AI has analyzed so far; null/absent once the analysis is complete. */
+  analyzed_until?: number | null;
 }
 
 export interface Job {
@@ -47,6 +49,8 @@ export interface Job {
   total: number;
   error: string | null;
   result: Analysis | null;
+  /** Watchable before the job is done: instant labels, refined part by part. */
+  partial?: Analysis | null;
 }
 
 export interface LibraryItem {

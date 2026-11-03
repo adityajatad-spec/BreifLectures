@@ -86,3 +86,22 @@ def test_missing_model_is_a_clear_error(fake, monkeypatch):
     monkeypatch.setattr(config, "OLLAMA_MODEL", "nope:1b")
     with pytest.raises(analyze_ollama.LocalModelError, match="ollama pull nope:1b"):
         analyze_ollama.analyze("x", make_lecture(5))
+
+
+def test_partial_results_arrive_window_by_window(fake):
+    seen = []
+    segs, chapters, _ = analyze_ollama.analyze(
+        "Gradients", make_lecture(), on_partial=lambda s, c, until: seen.append((until, len(c), s[3].label))
+    )
+    untils = [u for u, _, _ in seen]
+    assert len(seen) == len(analyze_ollama.windows(make_lecture())) > 1
+    assert untils == sorted(untils) and untils[-1] == max(s.end for s in segs if s.label != Label.silence)
+    assert seen[0][2] == Label.core  # the first window is already AI-labelled in the first partial
+    # Segment topics come from the section they fall in, not from a per-segment field.
+    assert all(s.topic.startswith("Part starting at") for s in segs if s.label != Label.silence)
+
+
+def test_model_is_not_asked_for_per_segment_topics():
+    item = analyze_ollama._schema([1, 2])["properties"]["segments"]["items"]
+    assert set(item["properties"]) == {"id", "label", "importance"}
+    assert "topic" not in analyze_ollama.SYSTEM.split("Also list")[0].split("importance")[-1]

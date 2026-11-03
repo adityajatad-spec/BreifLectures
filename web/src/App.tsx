@@ -54,7 +54,7 @@ function UrlForm({
   );
 }
 
-function ProgressCard({ job }: { job: Job | null }) {
+function ProgressCard({ job, watching = false }: { job: Job | null; watching?: boolean }) {
   const pct = job && job.total > 0 ? Math.round((job.done / job.total) * 100) : null;
   return (
     <section className="glass progress-card" aria-live="polite">
@@ -67,7 +67,9 @@ function ProgressCard({ job }: { job: Job | null }) {
         <div className="progress-fill" style={{ width: pct === null ? undefined : `${pct}%` }} />
       </div>
       <p className="muted small">
-        The AI runs on this computer, so a long lecture takes a few minutes. You only wait once per video.
+        {watching
+          ? "Start watching now: the AI works through the lecture ahead of you, and skips appear as each part is done."
+          : "The lecture opens as soon as the captions are in. You only wait once per video."}
       </p>
     </section>
   );
@@ -88,6 +90,21 @@ export default function App() {
   const [time, setTime] = useState(0);
   const player = useRef<PlayerHandle>(null);
   const lastSaved = useRef(0);
+  // Which lecture is on screen, and which request it belongs to: going home or opening
+  // another lecture must stop a still-running analysis from popping back up.
+  const shownId = useRef<string | null>(null);
+  const request = useRef(0);
+  const lastUntil = useRef<number | null | undefined>(undefined);
+
+  const show = useCallback((a: Analysis) => {
+    if (shownId.current !== a.video_id) {
+      shownId.current = a.video_id;
+      setTarget(null);
+      setTime(0);
+      lastSaved.current = 0;
+    }
+    setAnalysis(a);
+  }, []);
 
   const refreshLibrary = useCallback(() => {
     getLibrary()
@@ -101,21 +118,34 @@ export default function App() {
   useEffect(() => save("autoSkip", autoSkip), [autoSkip]);
 
   const open = async (link: string, force = false) => {
+    const mine = ++request.current;
+    lastUntil.current = undefined;
     setLoading(true);
     setJob(null);
     setError(null);
     try {
-      const result = await analyze(link, setJob, force);
-      setAnalysis(result);
-      setTarget(null);
-      setTime(0);
-      lastSaved.current = 0;
+      const result = await analyze(
+        link,
+        (j) => {
+          if (request.current !== mine) return;
+          setJob(j);
+          // Re-render the lecture only when another part is done, not on every poll.
+          if (j.partial && j.partial.analyzed_until !== lastUntil.current) {
+            lastUntil.current = j.partial.analyzed_until;
+            show(j.partial);
+            setUrl("");
+          }
+        },
+        force,
+      );
+      if (request.current !== mine) return;
+      show(result);
       setUrl("");
       refreshLibrary();
     } catch (err) {
-      setError((err as Error).message);
+      if (request.current === mine) setError((err as Error).message);
     } finally {
-      setLoading(false);
+      if (request.current === mine) setLoading(false);
     }
   };
 
@@ -125,6 +155,9 @@ export default function App() {
   };
 
   const goHome = () => {
+    request.current++; // a running analysis keeps going (and is cached), but stops steering the UI
+    shownId.current = null;
+    setLoading(false);
     setAnalysis(null);
     setError(null);
     refreshLibrary();
@@ -168,6 +201,7 @@ export default function App() {
   // Don't resume into the last few seconds: that just shows the end screen.
   const resumeAt = videoId ? load(`pos:${videoId}`, 0) : 0;
   const startAt = resumeAt < full - 15 ? resumeAt : 0;
+  const refining = analysis?.analyzed_until != null;
   const currentChapter = analysis ? analysis.chapters.filter((c) => c.start <= time).length - 1 : -1;
 
   return (
@@ -247,14 +281,21 @@ export default function App() {
               <button className="btn btn-ghost btn-small" onClick={goHome}>
                 <Icon name="arrowLeft" size={16} /> Library
               </button>
-              <span className={`chip ${analysis.engine === "ollama" ? "chip-ai" : ""}`}>
-                <Icon name={analysis.engine === "ollama" ? "cpu" : "zap"} size={14} />
-                {analysis.engine === "ollama" ? "Local AI" : "Offline estimate"}
-              </span>
+              {refining ? (
+                <span className="chip chip-ai chip-live">
+                  <span className="pulse-dot" aria-hidden />
+                  AI analyzing ahead · {Math.round(((analysis.analyzed_until ?? 0) / Math.max(full, 1)) * 100)}%
+                </span>
+              ) : (
+                <span className={`chip ${analysis.engine === "ollama" ? "chip-ai" : ""}`}>
+                  <Icon name={analysis.engine === "ollama" ? "cpu" : "zap"} size={14} />
+                  {analysis.engine === "ollama" ? "Local AI" : "Offline estimate"}
+                </span>
+              )}
             </div>
             <h2 className="lecture-heading">{analysis.title}</h2>
 
-            {loading && <ProgressCard job={job} />}
+            {loading && !refining && <ProgressCard job={job} />}
 
             <div className="player-shell">
               <Player
@@ -266,7 +307,14 @@ export default function App() {
                 onTime={onTime}
               />
             </div>
-            <Timeline segments={segments} keep={keep} duration={full} time={time} onSeek={seek} />
+            <Timeline
+              segments={segments}
+              keep={keep}
+              duration={full}
+              time={time}
+              analyzedUntil={analysis.analyzed_until ?? null}
+              onSeek={seek}
+            />
 
             <div className="kpis">
               <div className="glass kpi">

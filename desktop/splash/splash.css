@@ -1,23 +1,25 @@
 :root {
-  --bg: #f6f5f2;
-  --text: #1c1b19;
-  --muted: #6b6860;
-  --accent: #3d5afe;
-  --danger: #c62828;
-  color-scheme: light;
+  --bg: #07070c;
+  --text: #f4f3ff;
+  --muted: #a09fb8;
+  --accent: #a78bfa;
+  --danger: #fb7185;
+  color-scheme: dark;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #121212; --text: #f2f1ee; --muted: #a19e96; --accent: #7c8cff; --danger: #ff6b6b; color-scheme: dark; }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f7f7fb; --text: #12111c; --muted: #5d5b74; --accent: #7c3aed; --danger: #e11d48; color-scheme: light; }
 }
 html, body { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--text); display: grid; place-items: center; -webkit-user-select: none; user-select: none; }
+body {
+  background: radial-gradient(600px 400px at 30% 20%, rgba(139, 92, 246, 0.35), transparent 70%),
+    radial-gradient(500px 400px at 75% 70%, rgba(34, 211, 238, 0.2), transparent 70%), var(--bg); color: var(--text); display: grid; place-items: center; -webkit-user-select: none; user-select: none; }
 main { text-align: center; padding: 16px; max-width: 520px; }
-.mark { display: block; margin: 0 auto 12px; }
-h1 { margin: 0 0 8px; font-size: 24px; }
+.mark { display: block; margin: 0 auto 14px; filter: drop-shadow(0 10px 30px rgba(99, 102, 241, 0.7)); }
+h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: -0.03em; }
 .status { color: var(--muted); line-height: 1.5; margin: 0 0 20px; }
 .status.error { color: var(--danger); -webkit-user-select: text; user-select: text; overflow-wrap: anywhere; }
-.restart { font: inherit; font-weight: 600; padding: 10px 18px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer; }
+.restart { font: inherit; font-weight: 600; padding: 10px 18px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #a855f7, #6366f1 45%, #22d3ee); color: #fff; cursor: pointer; }
 .restart:disabled { opacity: 0.6; }
 .spinner { width: 22px; height: 22px; margin: 0 auto; border-radius: 50%; border: 3px solid var(--muted); border-top-color: var(--accent); opacity: 0.6; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

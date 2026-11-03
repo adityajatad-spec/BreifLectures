@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { getSettings, getSetup, saveSettings } from "../lib/api";
 import type { RecommendedModel, Settings, SpeechModel } from "../lib/types";
+import { Icon } from "./Icon";
 
 // Any language works ("auto" keeps the lecture's own); these are just quick picks.
 const OUTPUT_LANGUAGES = [
@@ -57,7 +58,12 @@ export function SettingsDialog({ open, onClose }: Props) {
   return (
     <dialog ref={dialog} className="settings" onCancel={() => onClose(false)}>
       <form onSubmit={submit}>
-        <h2>Settings</h2>
+        <div className="dialog-head">
+          <h2>Settings</h2>
+          <button type="button" className="btn btn-icon btn-small" onClick={() => onClose(false)} aria-label="Close">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
         {settings ? (
           <>
             <fieldset>
@@ -153,10 +159,10 @@ export function SettingsDialog({ open, onClose }: Props) {
         )}
         {error && <p className="error-text">{error}</p>}
         <div className="dialog-actions">
-          <button type="button" onClick={() => onClose(false)}>
+          <button type="button" className="btn btn-ghost" onClick={() => onClose(false)}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!settings}>
+          <button type="submit" className="btn btn-primary" disabled={!settings}>
             Save
           </button>
         </div>

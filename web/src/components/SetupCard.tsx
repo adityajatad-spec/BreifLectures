@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getSetup, pullModel, startOllama } from "../lib/api";
 import { openExternal } from "../lib/platform";
 import type { SetupStatus } from "../lib/types";
+import { Icon } from "./Icon";
 
 const POLL_MS = 2000;
 
@@ -68,7 +69,7 @@ export function SetupCard({ onReady }: { onReady?: () => void }) {
           BriefLectures runs its AI on your Mac with <strong>Ollama</strong>, a free app. Nothing you watch leaves your
           computer. Install it, open it once, and come back here.
         </p>
-        <button className="primary" onClick={() => act(() => openExternal(status.ollama_download_url))}>
+        <button className="btn btn-primary" onClick={() => act(() => openExternal(status.ollama_download_url))}>
           Download Ollama
         </button>
       </>
@@ -77,7 +78,7 @@ export function SetupCard({ onReady }: { onReady?: () => void }) {
     body = (
       <>
         <p>Ollama is installed but not running.</p>
-        <button className="primary" disabled={busy} onClick={() => act(startOllama)}>
+        <button className="btn btn-primary" disabled={busy} onClick={() => act(startOllama)}>
           Start Ollama
         </button>
       </>
@@ -89,7 +90,9 @@ export function SetupCard({ onReady }: { onReady?: () => void }) {
         <p>
           Downloading <strong>{status.model}</strong>… {pull.total ? `${gb(pull.completed)} of ${gb(pull.total)}` : pull.detail}
         </p>
-        <progress value={pct} max={100} aria-label="Model download progress" />
+        <div className="progress-track" role="progressbar" aria-valuenow={pct} aria-label="Model download progress">
+          <div className="progress-fill" style={{ width: `${pct}%` }} />
+        </div>
       </>
     );
   } else {
@@ -106,19 +109,38 @@ export function SetupCard({ onReady }: { onReady?: () => void }) {
           .
         </p>
         {pull.status === "error" && pull.model === status.model && <p className="error-text">{pull.error}</p>}
-        <button className="primary" disabled={busy} onClick={() => act(() => pullModel(status.model))}>
+        <button className="btn btn-primary" disabled={busy} onClick={() => act(() => pullModel(status.model))}>
           Download model
         </button>
       </>
     );
   }
 
+  // 1 install → 2 start → 3 download; `stage` is the step in progress.
+  const stage = status.ollama === "missing" ? 0 : status.ollama === "stopped" ? 1 : 2;
+  const steps = ["Install Ollama", "Start Ollama", "Download the model"];
+
   return (
-    <section className="setup card" aria-live="polite">
-      <h3>Set up local AI</h3>
-      {body}
+    <section className="glass setup" aria-live="polite">
+      <div className="setup-head">
+        <span className="feature-icon">
+          <Icon name="cpu" size={20} />
+        </span>
+        <div>
+          <h3>Set up local AI</h3>
+          <p className="muted small">Until then, lectures get a rough offline estimate instead.</p>
+        </div>
+      </div>
+      <ol className="stepper">
+        {steps.map((label, i) => (
+          <li key={label} className={i < stage ? "done" : i === stage ? "now" : ""}>
+            <span className="step-dot">{i < stage ? <Icon name="check" size={13} /> : i + 1}</span>
+            {label}
+          </li>
+        ))}
+      </ol>
+      <div className="setup-body">{body}</div>
       {error && <p className="error-text">{error}</p>}
-      <p className="hint">Until then, lectures get a rough offline estimate instead.</p>
     </section>
   );
 }

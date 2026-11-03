@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { rangeAt, type SkipRange } from "../lib/cuts";
 import { clock } from "../lib/format";
 import { loadYouTube, type YTPlayer } from "../lib/youtube";
+import { Icon } from "./Icon";
 
 export interface PlayerHandle {
   seek(seconds: number): void;
@@ -105,6 +106,9 @@ export const Player = forwardRef<PlayerHandle, Props>(function Player({ videoId,
       {error && <div className="player-error">{error}</div>}
       {toast && (
         <div className="toast" role="status">
+          <span className="toast-icon" aria-hidden>
+            <Icon name="zap" size={14} />
+          </span>
           Skipped {clock(toast.range.end - toast.range.start)} of {toast.range.labels.join(" + ")}
           <button onClick={undo}>Watch it</button>
         </div>

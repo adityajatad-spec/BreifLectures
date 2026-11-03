@@ -11,24 +11,31 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a left-aligned study desk. Paper page, ballpoint-blue ink, one highlighter;
-   the hero's job is a live demo of a timeline being cut. */
+/* Layout: a left-aligned lecture hall. Light is sage paper with board-green ink; dark is the
+   chalkboard itself. Chalk colours (yellow, blue, pink) are the only accents. */
 :root {
-  --paper: #f5f6f8;
-  --sheet: #ffffff;
-  --ink: #11141b;
-  --ink-2: #4b5161;
-  --ink-3: #8a90a0;
-  --rule: #e2e5eb;
-  --blue: #2a44e0;
-  --blue-soft: #e7ebff;
-  --marker: #ffe24a;
-  --marker-ink: #11141b;
-  --skip: #c9ced8;
-  --core: #2a44e0;
-  --example: #0f9bb5;
-  --recap: #c98a12;
-  --shadow: 0 1px 0 rgba(17, 20, 27, 0.04), 0 24px 60px -32px rgba(26, 34, 70, 0.28);
+  --paper: #edf1e9;
+  --sheet: #f9fbf6;
+  --ink: #16291f;
+  --ink-2: #4a5c50;
+  --ink-3: #829183;
+  --rule: #d5ddd0;
+  --blue: #1f6b4a;
+  --blue-soft: #dce9df;
+  --marker: #f5cf4f;
+  --marker-ink: #16291f;
+  --skip: #b9c4b5;
+  --core: #1f6b4a;
+  --example: #2b7ea6;
+  --recap: #c0557a;
+  --board: #17281f;
+  --board-2: #1f3529;
+  --chalk: #eef0e4;
+  --chalk-2: #a8b6a6;
+  --chalk-yellow: #f2c94c;
+  --chalk-blue: #8fcbe9;
+  --chalk-pink: #f2a0b6;
+  --shadow: 0 1px 0 rgba(22, 41, 31, 0.05), 0 26px 60px -34px rgba(22, 41, 31, 0.45);
 
   --display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
   --body: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -44,18 +51,20 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0c0f16; --sheet: #131824; --ink: #eceef3; --ink-2: #a3a9b8; --ink-3: #6f7688;
-    --rule: #232a39; --blue: #8696ff; --blue-soft: #1b2242; --marker: #f3d23b; --marker-ink: #11141b;
-    --skip: #39404f; --core: #7d8dff; --example: #3cc3da; --recap: #e0a83a;
-    --shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 30px 70px -30px rgba(0, 0, 0, 0.7);
+    --paper: #121e17; --sheet: #182920; --ink: #eef0e4; --ink-2: #a8b6a6; --ink-3: #6f806f;
+    --rule: #263a2e; --blue: #f2c94c; --blue-soft: #2a3a26; --marker: #f2c94c; --marker-ink: #121e17;
+    --skip: #34483b; --core: #f2c94c; --example: #8fcbe9; --recap: #f2a0b6;
+    --board: #1b2e23; --board-2: #223a2c;
+    --shadow: 0 1px 0 rgba(238, 240, 228, 0.03), 0 30px 70px -30px rgba(0, 0, 0, 0.75);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #0c0f16; --sheet: #131824; --ink: #eceef3; --ink-2: #a3a9b8; --ink-3: #6f7688;
-  --rule: #232a39; --blue: #8696ff; --blue-soft: #1b2242; --marker: #f3d23b; --marker-ink: #11141b;
-  --skip: #39404f; --core: #7d8dff; --example: #3cc3da; --recap: #e0a83a;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 30px 70px -30px rgba(0, 0, 0, 0.7);
+  --paper: #121e17; --sheet: #182920; --ink: #eef0e4; --ink-2: #a8b6a6; --ink-3: #6f806f;
+  --rule: #263a2e; --blue: #f2c94c; --blue-soft: #2a3a26; --marker: #f2c94c; --marker-ink: #121e17;
+  --skip: #34483b; --core: #f2c94c; --example: #8fcbe9; --recap: #f2a0b6;
+  --board: #1b2e23; --board-2: #223a2c;
+  --shadow: 0 1px 0 rgba(238, 240, 228, 0.03), 0 30px 70px -30px rgba(0, 0, 0, 0.75);
   color-scheme: dark;
 }
 
@@ -127,16 +136,16 @@ p { margin: 0; }
 .window-bar .url { flex: 1; min-width: 0; font: 400 0.8125rem var(--mono); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .window-body { display: grid; grid-template-columns: minmax(0, 1fr) 272px; }
 .stage { padding: 20px; display: grid; gap: 14px; min-width: 0; border-right: 1px solid var(--rule); }
-.board { position: relative; aspect-ratio: 16 / 8.4; border-radius: 10px; background: #f9f9f6; border: 1px solid #e6e6df; overflow: hidden; max-width: 100%; }
+.board { position: relative; aspect-ratio: 16 / 8.4; border-radius: 10px; background: radial-gradient(120% 90% at 30% 20%, var(--board-2), var(--board)); border: 6px solid #6b4f36; box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35); overflow: hidden; max-width: 100%; }
 .board svg { width: 100%; height: 100%; display: block; }
 .toast {
   position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 8px); opacity: 0;
   display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 14px; border-radius: 999px;
-  background: #11141b; color: #f5f6f8; font-size: 0.8125rem; white-space: nowrap; transition: opacity 0.25s, transform 0.25s;
+  background: var(--chalk); color: var(--board); font-size: 0.8125rem; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6); white-space: nowrap; transition: opacity 0.25s, transform 0.25s;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast b { font-weight: 600; }
-.toast span.undo { background: #f5f6f8; color: #11141b; border-radius: 999px; padding: 3px 10px; font-weight: 600; }
+.toast span.undo { background: var(--board); color: var(--chalk); border-radius: 999px; padding: 3px 10px; font-weight: 600; }
 .timeline { position: relative; height: 22px; border-radius: 6px; background: var(--paper); border: 1px solid var(--rule); overflow: hidden; }
 .seg { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
 .seg.core { background: var(--core); }
@@ -226,12 +235,13 @@ section.block { padding-block: clamp(72px, 10vw, 120px) 0; }
 .fact .v { font: 500 0.875rem var(--mono); color: var(--ink-2); white-space: nowrap; }
 
 /* Privacy */
-.private { background: var(--ink); color: var(--paper); border-radius: 22px; padding: clamp(28px, 5vw, 56px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
+.private { background: radial-gradient(120% 100% at 0% 0%, var(--board-2), var(--board)); color: var(--chalk); border-radius: 22px; padding: clamp(28px, 5vw, 56px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
 .private h2 { font-size: var(--step-3); line-height: 1.08; }
-.private p { color: color-mix(in srgb, var(--paper) 72%, var(--ink)); font-size: var(--step-1); margin-top: 16px; }
-.specs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: color-mix(in srgb, var(--paper) 16%, var(--ink)); border-radius: 12px; overflow: hidden; align-self: start; }
-.specs div { background: var(--ink); padding: 18px; display: grid; gap: 6px; }
-.specs .label { color: color-mix(in srgb, var(--paper) 55%, var(--ink)); }
+.private p { color: var(--chalk-2); font-size: var(--step-1); margin-top: 16px; }
+.specs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: color-mix(in srgb, var(--chalk) 14%, var(--board)); border-radius: 12px; overflow: hidden; align-self: start; }
+.specs div { background: var(--board); padding: 18px; display: grid; gap: 6px; }
+.specs .label { color: var(--chalk-2); }
+.specs b { color: var(--chalk-yellow); }
 .specs b { font: 700 1.5rem var(--display); letter-spacing: -0.02em; }
 
 /* FAQ */
@@ -279,9 +289,9 @@ footer nav { display: flex; gap: 20px; }
   <div class="wrap">
     <a class="logo" href="#top" aria-label="BriefLectures home">
       <svg width="28" height="28" viewBox="0 0 1024 1024" aria-hidden="true">
-        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5468ff"/><stop offset="1" stop-color="#2a3bd6"/></linearGradient></defs>
-        <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#lg)"/>
-        <path d="M330 352 L548 512 L330 672 Z" fill="#fff"/><path d="M520 352 L738 512 L520 672 Z" fill="#fff" opacity="0.55"/>
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="#1f3529"/>
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="none" stroke="#6b4f36" stroke-width="36"/>
+        <path d="M330 352 L548 512 L330 672 Z" fill="#f2c94c"/><path d="M520 352 L738 512 L520 672 Z" fill="#eef0e4" opacity="0.6"/>
       </svg>
       BriefLectures
     </a>
@@ -329,17 +339,17 @@ footer nav { display: flex; gap: 20px; }
             <div class="stage">
               <div class="board">
                 <svg viewBox="0 0 640 336" role="img" aria-label="A whiteboard with the derivative of sine of x squared">
-                  <g fill="none" stroke="#1d2433" stroke-width="2.2" stroke-linecap="round">
+                  <g fill="none" stroke="var(--chalk)" stroke-width="2.4" stroke-linecap="round" opacity="0.92">
                     <path d="M330 270 H600 M346 290 V60"/>
-                    <path d="M352 262 C 400 255, 440 230, 470 190 S 540 80, 590 70" stroke="#2a44e0" stroke-width="3"/>
-                    <path d="M410 250 L 560 120" stroke="#c98a12" stroke-dasharray="6 7"/>
+                    <path d="M352 262 C 400 255, 440 230, 470 190 S 540 80, 590 70" stroke="var(--chalk-yellow)" stroke-width="3.4"/>
+                    <path d="M410 250 L 560 120" stroke="var(--chalk-pink)" stroke-dasharray="6 7"/>
                   </g>
-                  <circle cx="478" cy="182" r="5" fill="#c98a12"/>
-                  <g font-family="'Geist Mono', ui-monospace, monospace" fill="#1d2433">
+                  <circle cx="478" cy="182" r="5.5" fill="var(--chalk-pink)"/>
+                  <g font-family="'Geist Mono', ui-monospace, monospace" fill="var(--chalk)">
                     <text x="42" y="86" font-size="26">d/dx sin(x²)</text>
                     <text x="42" y="132" font-size="26">= cos(x²) · 2x</text>
-                    <text x="42" y="196" font-size="15" fill="#5a6172">outer′(inner) · inner′</text>
-                    <text x="42" y="222" font-size="15" fill="#5a6172">the chain rule</text>
+                    <text x="42" y="196" font-size="15" fill="var(--chalk-blue)">outer′(inner) · inner′</text>
+                    <text x="42" y="222" font-size="15" fill="var(--chalk-2)">the chain rule</text>
                   </g>
                 </svg>
                 <div class="toast" id="toast" role="status" aria-live="polite"><b id="toast-text">Skipped 0:42 of admin</b><span class="undo">Watch it</span></div>
@@ -503,7 +513,7 @@ footer nav { display: flex; gap: 20px; }
     <div class="wrap">
       <div class="private">
         <div>
-          <span class="label" style="color:color-mix(in srgb, var(--paper) 55%, var(--ink))">Private by design</span>
+          <span class="label" style="color:var(--chalk-yellow)">Private by design</span>
           <h2 style="margin-top:14px">The AI runs on your Mac.</h2>
           <p>BriefLectures uses a local model through Ollama, a free app. What you watch isn't uploaded anywhere, and there's no account to make. Results are saved on your Mac, so each lecture is only analyzed once.</p>
         </div>

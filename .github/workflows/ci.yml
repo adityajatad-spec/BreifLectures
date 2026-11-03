@@ -33,6 +33,19 @@ jobs:
           npm test
           npm run build
 
+  extension:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Typecheck and build
+        run: |
+          npm ci --prefix extension
+          npm --prefix extension run typecheck
+          npm --prefix extension run build
+
   desktop-check:
     # Compiles the Tauri shell on Linux; release builds happen on macOS (release.yml).
     runs-on: ubuntu-24.04

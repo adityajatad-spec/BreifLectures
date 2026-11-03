@@ -14,6 +14,8 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 const READY_PREFIX: &str = "BRIEF_READY ";
+/// The port the Chrome extension looks for the engine on (extension/src/engine.ts).
+const EXTENSION_PORT: u16 = 47913;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// The running backend, so it can be stopped when the app quits.
@@ -52,7 +54,8 @@ fn start_backend(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .sidecar("brief-api")?
         .args([
             "--port".into(),
-            "0".into(),
+            // Fixed so the Chrome extension can find the engine; it falls back to any free port.
+            EXTENSION_PORT.to_string(),
             "--data-dir".into(),
             data_dir.to_string_lossy().into_owned(),
             "--log-dir".into(),

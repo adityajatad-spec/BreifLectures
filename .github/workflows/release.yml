@@ -53,6 +53,13 @@ jobs:
           cd backend && python -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/python -m pytest -q
           cd ../web && npm test
 
+      - name: Build the Chrome extension
+        run: |
+          npm ci --prefix extension
+          npm --prefix extension run typecheck
+          npm --prefix extension run build
+          (cd extension/dist && zip -qr ../../BriefLectures-chrome-extension.zip .)
+
       - name: Build the bundled engine
         run: scripts/build-sidecar.sh
 
@@ -85,7 +92,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: BriefLectures-macOS-arm64
-          path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          path: |
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            BriefLectures-chrome-extension.zip
 
       - name: Remove the signing keychain
         if: always() && env.SIGNING_KEYCHAIN != ''
@@ -95,4 +104,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: BriefLectures.dmg
+          files: |
+            BriefLectures.dmg
+            BriefLectures-chrome-extension.zip

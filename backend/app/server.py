@@ -1,6 +1,7 @@
 """Entry point for the desktop app's bundled backend.
 
-The app starts this with --port 0 and reads one line from stdout:
+The app starts this with --port 47913 (the port the Chrome extension looks for; if it is
+taken, any free port is used) and reads one line from stdout:
     BRIEF_READY http://127.0.0.1:<port>
 Everything else goes to the log file. --parent-pid makes us exit if the app dies
 without cleaning up, so a crashed app never leaves an orphaned server behind.
@@ -66,7 +67,14 @@ def main(argv: list[str] | None = None) -> None:
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((args.host, args.port))
+    try:
+        sock.bind((args.host, args.port))
+    except OSError:
+        if not args.port:
+            raise
+        # Preferred port taken (another copy running, or some other program): any free port.
+        logging.getLogger(__name__).warning("Port %s is in use; picking a free one", args.port)
+        sock.bind((args.host, 0))
     port = sock.getsockname()[1]
 
     if args.parent_pid:

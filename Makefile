@@ -1,9 +1,10 @@
-.PHONY: setup dev api web test sidecar app app-dev
+.PHONY: setup dev api web test sidecar app app-dev extension
 
 setup:
 	cd backend && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 	cd web && npm install
 	cd desktop && npm install
+	cd extension && npm install
 
 # Runs the API on :8000 and the web app on :5173 (open http://localhost:5173).
 dev:
@@ -32,3 +33,7 @@ app-dev:
 # A release build: BriefLectures.app and a .dmg on macOS.
 app: sidecar
 	cd desktop && npm run build
+
+# The Chrome extension, built into extension/dist (load it at chrome://extensions).
+extension:
+	cd extension && npm run build

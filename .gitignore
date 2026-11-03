@@ -17,3 +17,7 @@ web/dist/
 # Desktop
 desktop/node_modules/
 backend/build/
+
+# Extension
+extension/node_modules/
+extension/dist/

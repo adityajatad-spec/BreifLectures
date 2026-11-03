@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BriefLectures</title>
+<style>
+  :root { --bg: #f4f7f1; --line: #d9e1d4; --ink: #16291f; --ink-2: #4a5c50; --accent: #1f6b4a; --on-accent: #f4f7f1; --ok: #1f6b4a; --bad: #b23b4a; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #17241c; --line: #2a3b31; --ink: #eef0e4; --ink-2: #b2bfb0; --accent: #f2c94c; --on-accent: #17241c; --ok: #8fd19e; --bad: #f2a0b6; color-scheme: dark; } }
+  body { margin: 0; width: 300px; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { padding: 16px; display: grid; gap: 14px; }
+  header { display: flex; align-items: center; gap: 10px; }
+  header img { width: 26px; height: 26px; }
+  h1 { font-size: 15px; margin: 0; }
+  .status { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink-2); font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; background: var(--ink-2); }
+  .status.ok .dot { background: var(--ok); } .status.bad .dot { background: var(--bad); }
+  .status b { color: var(--ink); display: block; }
+  label { display: grid; gap: 6px; font-size: 13px; color: var(--ink-2); }
+  select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; color: var(--ink); }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+  a.btn { display: block; text-align: center; padding: 9px; border-radius: 9px; background: var(--accent); color: var(--on-accent); text-decoration: none; font-weight: 600; font-size: 13px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header><img src="icons/48.png" alt=""><h1>BriefLectures</h1></header>
+  <div class="status" id="status"><span class="dot"></span><span><b id="status-title">Checking…</b><span id="status-detail"></span></span></div>
+  <a class="btn" id="download" target="_blank" rel="noopener" hidden>Download the Mac app</a>
+  <label for="cut">Default cut
+    <select id="cut">
+      <option value="full">Full lecture</option>
+      <option value="no-filler">Cut the filler</option>
+      <option value="key-moments">Key moments</option>
+    </select>
+  </label>
+  <label class="toggle" for="autoskip">Auto-skip<input type="checkbox" id="autoskip"></label>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>

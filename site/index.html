@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BriefLectures</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Paste a YouTube lecture. BriefLectures finds the logistics, filler and repeats, and the player skips them. Runs on your Mac, in any language.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a left-aligned study desk. Paper page, ballpoint-blue ink, one highlighter;
+   the hero's job is a live demo of a timeline being cut. */
+:root {
+  --paper: #f5f6f8;
+  --sheet: #ffffff;
+  --ink: #11141b;
+  --ink-2: #4b5161;
+  --ink-3: #8a90a0;
+  --rule: #e2e5eb;
+  --blue: #2a44e0;
+  --blue-soft: #e7ebff;
+  --marker: #ffe24a;
+  --marker-ink: #11141b;
+  --skip: #c9ced8;
+  --core: #2a44e0;
+  --example: #0f9bb5;
+  --recap: #c98a12;
+  --shadow: 0 1px 0 rgba(17, 20, 27, 0.04), 0 24px 60px -32px rgba(26, 34, 70, 0.28);
+
+  --display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.5rem;
+  --step-3: 2.125rem;
+  --step-4: clamp(2.6rem, 6.2vw, 4.75rem);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0c0f16; --sheet: #131824; --ink: #eceef3; --ink-2: #a3a9b8; --ink-3: #6f7688;
+    --rule: #232a39; --blue: #8696ff; --blue-soft: #1b2242; --marker: #f3d23b; --marker-ink: #11141b;
+    --skip: #39404f; --core: #7d8dff; --example: #3cc3da; --recap: #e0a83a;
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 30px 70px -30px rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0c0f16; --sheet: #131824; --ink: #eceef3; --ink-2: #a3a9b8; --ink-3: #6f7688;
+  --rule: #232a39; --blue: #8696ff; --blue-soft: #1b2242; --marker: #f3d23b; --marker-ink: #11141b;
+  --skip: #39404f; --core: #7d8dff; --example: #3cc3da; --recap: #e0a83a;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 30px 70px -30px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 var(--step-0)/1.6 var(--body); -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+a { color: inherit; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -0.025em; }
+p { margin: 0; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 4px; }
+.wrap {
+  max-width: 1160px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label { font: 500 0.75rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.mark { background: linear-gradient(transparent 12%, var(--marker) 12%, var(--marker) 88%, transparent 88%); color: var(--marker-ink); padding: 0 0.08em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+/* ---------- Nav ---------- */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--paper) 86%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid transparent; transition: border-color 0.2s; }
+.nav.scrolled { border-bottom-color: var(--rule); }
+.nav .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 1.0625rem var(--display); letter-spacing: -0.02em; }
+.nav-links { display: flex; gap: 24px; margin-left: 8px; }
+.nav-links a { text-decoration: none; color: var(--ink-2); font-size: 0.9375rem; }
+.nav-links a:hover { color: var(--ink); }
+.nav .btn { margin-left: auto; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 18px; border-radius: 10px;
+  font: 600 0.9375rem var(--body); text-decoration: none; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink);
+  transition: transform 0.15s ease, background 0.2s, border-color 0.2s;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn:active { transform: translateY(1px); }
+.btn-ink { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn-ink:hover { background: color-mix(in srgb, var(--ink) 86%, var(--blue)); border-color: transparent; }
+.btn-small { height: 36px; padding: 0 14px; font-size: 0.875rem; }
+
+/* ---------- Hero ---------- */
+.hero { padding-block: clamp(48px, 9vw, 104px) 40px; }
+.hero-grid { display: grid; gap: 36px; }
+.hero-copy-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 40px; align-items: end; }
+.kicker { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 26px; }
+.kicker .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+.hero h1 { font-size: clamp(2.5rem, 8.2vw, 6.5rem); line-height: 0.98; font-weight: 800; letter-spacing: -0.05em; }
+.hero h1 .h-line { display: block; white-space: nowrap; }
+.hero h1 .cut { position: relative; color: var(--ink-3); white-space: nowrap; }
+.hero h1 .cut::after {
+  content: ""; position: absolute; left: -2%; right: -2%; top: 54%; height: 0.09em; background: var(--blue);
+  transform-origin: left; animation: strike 0.7s 0.9s cubic-bezier(0.6, 0, 0.2, 1) both;
+}
+@keyframes strike { from { transform: scaleX(0); } }
+.hero-copy { display: grid; gap: 14px; justify-items: start; }
+.lede { font-size: var(--step-1); color: var(--ink-2); max-width: 34em; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.fine { font-size: var(--step--1); color: var(--ink-3); }
+
+/* Product demo */
+.demo { margin-top: 56px; }
+.window { background: var(--sheet); border: 1px solid var(--rule); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+.window-bar { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+.lights { display: flex; gap: 7px; }
+.lights i { width: 11px; height: 11px; border-radius: 50%; background: var(--rule); }
+.window-bar .url { flex: 1; min-width: 0; font: 400 0.8125rem var(--mono); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.window-body { display: grid; grid-template-columns: minmax(0, 1fr) 272px; }
+.stage { padding: 20px; display: grid; gap: 14px; min-width: 0; border-right: 1px solid var(--rule); }
+.board { position: relative; aspect-ratio: 16 / 8.4; border-radius: 10px; background: #f9f9f6; border: 1px solid #e6e6df; overflow: hidden; max-width: 100%; }
+.board svg { width: 100%; height: 100%; display: block; }
+.toast {
+  position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 8px); opacity: 0;
+  display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 14px; border-radius: 999px;
+  background: #11141b; color: #f5f6f8; font-size: 0.8125rem; white-space: nowrap; transition: opacity 0.25s, transform 0.25s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast b { font-weight: 600; }
+.toast span.undo { background: #f5f6f8; color: #11141b; border-radius: 999px; padding: 3px 10px; font-weight: 600; }
+.timeline { position: relative; height: 22px; border-radius: 6px; background: var(--paper); border: 1px solid var(--rule); overflow: hidden; }
+.seg { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
+.seg.core { background: var(--core); }
+.seg.example { background: var(--example); }
+.seg.recap { background: var(--recap); }
+.seg.skip { background: repeating-linear-gradient(135deg, var(--skip) 0 3px, transparent 3px 6px); }
+.seg.skip.flash { background: var(--marker); transition: background 0.1s; }
+.playhead { position: absolute; top: -1px; bottom: -1px; width: 2px; background: var(--ink); left: 0; }
+.tl-meta { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 0.75rem; color: var(--ink-3); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 9px; height: 9px; border-radius: 2px; }
+.panel { padding: 20px; display: grid; gap: 18px; align-content: start; }
+.readout { display: grid; gap: 4px; }
+.readout .big { font: 700 2.25rem/1 var(--display); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.readout .was { color: var(--ink-3); font-size: 0.875rem; }
+.readout .was s { text-decoration-color: var(--blue); text-decoration-thickness: 2px; }
+.cuts { display: grid; gap: 6px; }
+.cutopt { display: flex; justify-content: space-between; align-items: center; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--rule); font-size: 0.875rem; }
+.cutopt.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.cutopt .mono { color: var(--ink-2); font-size: 0.8125rem; }
+.skiplog { display: grid; gap: 6px; font-size: 0.8125rem; }
+.skiplog div { display: flex; justify-content: space-between; gap: 8px; color: var(--ink-2); animation: fadein 0.3s ease both; }
+.skiplog div .mono { color: var(--ink-3); }
+@keyframes fadein { from { opacity: 0; transform: translateY(-3px); } }
+.demo-note { margin-top: 12px; font-size: var(--step--1); color: var(--ink-3); }
+
+/* ---------- Language ribbon ---------- */
+.ribbon { border-block: 1px solid var(--rule); overflow: hidden; padding-block: 18px; margin-top: 72px; }
+.ribbon-track { display: flex; gap: 48px; width: max-content; animation: ticker 60s linear infinite; }
+.ribbon-track span { white-space: nowrap; color: var(--ink-2); font-size: 1.0625rem; }
+.ribbon-track span small { font: 500 0.6875rem var(--mono); letter-spacing: 0.08em; color: var(--ink-3); margin-right: 10px; text-transform: uppercase; }
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+/* ---------- Sections ---------- */
+section.block { padding-block: clamp(72px, 10vw, 120px) 0; }
+.block-head { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: end; margin-bottom: 48px; }
+.block-head h2 { font-size: var(--step-3); line-height: 1.08; font-weight: 750; }
+.block-head p { color: var(--ink-2); font-size: var(--step-1); max-width: 34em; }
+
+/* Steps */
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--ink); }
+.step { padding: 26px 28px 8px 0; display: grid; gap: 12px; align-content: start; }
+.step + .step { padding-left: 28px; border-left: 1px solid var(--rule); }
+.step .n { font: 500 0.8125rem var(--mono); color: var(--blue); }
+.step h3 { font-size: var(--step-2); font-weight: 700; }
+.step p { color: var(--ink-2); }
+.step .detail { margin-top: 6px; font: 400 0.8125rem/1.5 var(--mono); color: var(--ink-3); }
+
+/* What gets cut */
+.cutlist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
+.cutlist article { background: var(--sheet); padding: 24px; display: grid; gap: 10px; align-content: start; }
+.cutlist .tag { display: inline-flex; align-items: center; gap: 8px; }
+.cutlist .tag i { width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, var(--ink-3) 0 2px, transparent 2px 4px); border: 1px solid var(--ink-3); }
+.cutlist q { font-size: var(--step-1); color: var(--ink); quotes: "“" "”"; }
+.cutlist p { color: var(--ink-2); font-size: 0.9375rem; }
+.kept-note { margin-top: 18px; display: flex; gap: 18px; flex-wrap: wrap; color: var(--ink-2); font-size: 0.9375rem; }
+.kept-note span { display: inline-flex; align-items: center; gap: 8px; }
+.kept-note i { width: 12px; height: 12px; border-radius: 3px; }
+
+/* Cuts table */
+.cuts-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+.cuts-table th { text-align: left; font: 500 0.75rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding: 0 16px 12px 0; border-bottom: 1px solid var(--ink); }
+.cuts-table td { padding: 18px 16px 18px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.cuts-table td:first-child { font: 700 var(--step-1) var(--display); letter-spacing: -0.01em; white-space: nowrap; }
+.cuts-table td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.bar { height: 8px; border-radius: 4px; background: var(--paper); border: 1px solid var(--rule); overflow: hidden; min-width: 120px; }
+.bar span { display: block; height: 100%; background: var(--ink); }
+.table-scroll { overflow-x: auto; }
+
+/* Languages */
+.lang-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.transcript { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.transcript header { display: flex; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--rule); }
+.line { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 14px; padding: 13px 18px; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.line:last-child { border-bottom: 0; }
+.line .t { font: 400 0.8125rem var(--mono); color: var(--ink-3); }
+.line .x { min-width: 0; }
+.line .k { font: 500 0.6875rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; white-space: nowrap; }
+.k.core { background: var(--blue-soft); color: var(--blue); }
+.k.skip { background: var(--paper); color: var(--ink-3); border: 1px dashed var(--ink-3); }
+.line.skipped .x { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--ink-3); }
+.facts { display: grid; gap: 0; border-top: 1px solid var(--ink); }
+.fact { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+.fact b { font-weight: 600; }
+.fact p { color: var(--ink-2); font-size: 0.9375rem; margin-top: 4px; }
+.fact .v { font: 500 0.875rem var(--mono); color: var(--ink-2); white-space: nowrap; }
+
+/* Privacy */
+.private { background: var(--ink); color: var(--paper); border-radius: 22px; padding: clamp(28px, 5vw, 56px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
+.private h2 { font-size: var(--step-3); line-height: 1.08; }
+.private p { color: color-mix(in srgb, var(--paper) 72%, var(--ink)); font-size: var(--step-1); margin-top: 16px; }
+.specs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: color-mix(in srgb, var(--paper) 16%, var(--ink)); border-radius: 12px; overflow: hidden; align-self: start; }
+.specs div { background: var(--ink); padding: 18px; display: grid; gap: 6px; }
+.specs .label { color: color-mix(in srgb, var(--paper) 55%, var(--ink)); }
+.specs b { font: 700 1.5rem var(--display); letter-spacing: -0.02em; }
+
+/* FAQ */
+.faq { border-top: 1px solid var(--ink); }
+.faq details { border-bottom: 1px solid var(--rule); }
+.faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 16px; padding: 20px 0; font: 600 var(--step-1) var(--display); letter-spacing: -0.01em; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font: 400 1.5rem/1 var(--mono); color: var(--ink-3); transition: transform 0.2s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding: 0 0 22px; color: var(--ink-2); max-width: 62ch; }
+
+/* Final CTA + footer */
+.final { padding-block: clamp(80px, 11vw, 140px); }
+.final h2 { font-size: var(--step-4); line-height: 1; font-weight: 800; letter-spacing: -0.045em; max-width: 14ch; }
+.final .cta-row { margin-top: 32px; }
+footer { border-top: 1px solid var(--rule); padding-block: 28px 40px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--ink-3); font-size: var(--step--1); }
+footer a { color: var(--ink-2); text-decoration: none; }
+footer nav { display: flex; gap: 20px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .hero-copy-row, .block-head, .lang-grid, .private { grid-template-columns: 1fr; }
+  .window-body { grid-template-columns: 1fr; }
+  .stage { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .nav-links { display: none; }
+}
+@media (max-width: 680px) {
+  .steps, .cutlist { grid-template-columns: 1fr; }
+  .step + .step { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule); }
+  .step { padding-right: 0; }
+  .specs { grid-template-columns: 1fr 1fr; }
+  .line { grid-template-columns: 44px minmax(0, 1fr); }
+  .line .k { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="BriefLectures home">
+      <svg width="28" height="28" viewBox="0 0 1024 1024" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5468ff"/><stop offset="1" stop-color="#2a3bd6"/></linearGradient></defs>
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#lg)"/>
+        <path d="M330 352 L548 512 L330 672 Z" fill="#fff"/><path d="M520 352 L738 512 L520 672 Z" fill="#fff" opacity="0.55"/>
+      </svg>
+      BriefLectures
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#cut">What gets cut</a>
+      <a href="#languages">Languages</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn btn-ink btn-small" href="https://github.com/adityajatad-spec/BreifLectures/releases">Download for Mac</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <span class="kicker label"><span class="dot"></span>For macOS · Runs on your Mac</span>
+          <h1><span class="h-line">Watch <span class="mark">the lecture.</span></span><span class="h-line">Skip <span class="cut">the rest.</span></span></h1>
+        </div>
+        <div class="hero-copy-row">
+          <p class="lede">Paste a YouTube lecture. BriefLectures reads it, finds the logistics, the filler and the parts that repeat, and the player jumps past them while you watch.</p>
+          <div class="hero-copy">
+            <div class="cta-row">
+              <a class="btn btn-ink" href="https://github.com/adityajatad-spec/BreifLectures/releases">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.1zM13.9 4.9c.7-.8 1.2-2 1-3.2-1 .1-2.2.7-3 1.5-.6.7-1.2 1.9-1 3.1 1.1.1 2.3-.6 3-1.4z"/></svg>
+                Download for Mac
+              </a>
+              <a class="btn" href="#how">See how it works</a>
+            </div>
+            <p class="fine">Free. Apple Silicon, macOS 12 or later. No account.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo" aria-label="Demo: a lecture timeline with the filler being skipped">
+        <div class="window">
+          <div class="window-bar">
+            <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="url">youtube.com/watch?v=… · Calculus I, Lecture 7: The chain rule</span>
+            <span class="label">Cut the filler</span>
+          </div>
+          <div class="window-body">
+            <div class="stage">
+              <div class="board">
+                <svg viewBox="0 0 640 336" role="img" aria-label="A whiteboard with the derivative of sine of x squared">
+                  <g fill="none" stroke="#1d2433" stroke-width="2.2" stroke-linecap="round">
+                    <path d="M330 270 H600 M346 290 V60"/>
+                    <path d="M352 262 C 400 255, 440 230, 470 190 S 540 80, 590 70" stroke="#2a44e0" stroke-width="3"/>
+                    <path d="M410 250 L 560 120" stroke="#c98a12" stroke-dasharray="6 7"/>
+                  </g>
+                  <circle cx="478" cy="182" r="5" fill="#c98a12"/>
+                  <g font-family="'Geist Mono', ui-monospace, monospace" fill="#1d2433">
+                    <text x="42" y="86" font-size="26">d/dx sin(x²)</text>
+                    <text x="42" y="132" font-size="26">= cos(x²) · 2x</text>
+                    <text x="42" y="196" font-size="15" fill="#5a6172">outer′(inner) · inner′</text>
+                    <text x="42" y="222" font-size="15" fill="#5a6172">the chain rule</text>
+                  </g>
+                </svg>
+                <div class="toast" id="toast" role="status" aria-live="polite"><b id="toast-text">Skipped 0:42 of admin</b><span class="undo">Watch it</span></div>
+              </div>
+              <div class="timeline" id="timeline" aria-hidden="true"><div class="playhead" id="playhead"></div></div>
+              <div class="tl-meta">
+                <span class="mono" id="clock">0:00 / 1:12:40</span>
+                <span class="legend">
+                  <span><i style="background:var(--core)"></i>Core</span>
+                  <span><i style="background:var(--example)"></i>Example</span>
+                  <span><i style="background:var(--recap)"></i>Recap</span>
+                  <span><i style="background:repeating-linear-gradient(135deg,var(--ink-3) 0 2px,transparent 2px 4px)"></i>Skipped</span>
+                </span>
+              </div>
+            </div>
+            <aside class="panel">
+              <div class="readout">
+                <span class="label">Watch time</span>
+                <span class="big" id="watch">55:28</span>
+                <span class="was"><s>1:12:40</s> full lecture</span>
+              </div>
+              <div class="cuts">
+                <div class="cutopt"><span>Full lecture</span><span class="mono">72 min</span></div>
+                <div class="cutopt on"><span>Cut the filler</span><span class="mono">55 min</span></div>
+                <div class="cutopt"><span>Key moments</span><span class="mono">21 min</span></div>
+              </div>
+              <div class="skiplog" id="skiplog"><span class="label">Skipped so far</span></div>
+            </aside>
+          </div>
+        </div>
+        <p class="demo-note">An illustration with example numbers. How much a real lecture shrinks depends on the lecture.</p>
+      </div>
+    </div>
+
+    <div class="ribbon" aria-label="Works with lectures in any language">
+      <div class="ribbon-track" id="ribbon">
+        <span><small>English</small>Today we'll look at the chain rule.</span>
+        <span><small>Hindi</small>आज हम chain rule समझेंगे।</span>
+        <span><small>Spanish</small>Hoy vamos a estudiar la regla de la cadena.</span>
+        <span><small>Japanese</small>今日は連鎖律について勉強します。</span>
+        <span><small>Hinglish</small>Toh aaj ka topic hai chain rule, samjhe?</span>
+        <span><small>French</small>Aujourd'hui, nous étudions la dérivation en chaîne.</span>
+        <span><small>Chinese</small>今天我们学习链式法则。</span>
+        <span><small>German</small>Heute lernen wir die Kettenregel.</span>
+        <span><small>Tamil</small>இன்று நாம் சங்கிலி விதியைப் படிப்போம்.</span>
+        <span><small>Arabic</small>اليوم سندرس قاعدة السلسلة.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="how">
+    <div class="wrap">
+      <div class="block-head">
+        <h2>Three steps, and only the first one is yours.</h2>
+        <p>The lecture opens about a second after you paste the link. The AI works through it from the start, ahead of where you're watching.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <span class="n">1 · Paste</span>
+          <h3>Paste a YouTube link</h3>
+          <p>Any lecture, any length. Watch, youtu.be, shorts and live links all work.</p>
+          <span class="detail">youtu.be/_A6PArXHqUo</span>
+        </div>
+        <div class="step">
+          <span class="n">2 · Read</span>
+          <h3>It reads the lecture</h3>
+          <p>It uses YouTube's captions in whatever language they're in. No captions? It listens to the audio and writes them on your Mac.</p>
+          <span class="detail">captions · Hindi (auto-generated)</span>
+        </div>
+        <div class="step">
+          <span class="n">3 · Watch</span>
+          <h3>Watch the short version</h3>
+          <p>The player skips what your cut leaves out. If it skipped something you wanted, one click plays it.</p>
+          <span class="detail">Skipped 0:42 of admin · Watch it</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="cut">
+    <div class="wrap">
+      <div class="block-head">
+        <h2>What gets cut</h2>
+        <p>Every 20 seconds of the lecture gets a label. These are the ones a cut can skip. Explanations, examples and recaps stay.</p>
+      </div>
+      <div class="cutlist">
+        <article>
+          <span class="tag label"><i></i>Logistics</span>
+          <q>Can everyone see my screen? Give me one second.</q>
+          <p>Mic checks, attendance, waiting for the room, homework reminders.</p>
+        </article>
+        <article>
+          <span class="tag label"><i></i>Repeat</span>
+          <q>So again, just to say it one more time…</q>
+          <p>The same idea explained again, with nothing new added. It's checked against everything said earlier in the lecture.</p>
+        </article>
+        <article>
+          <span class="tag label"><i></i>Filler</span>
+          <q>Um, okay, so, where was I. Right.</q>
+          <p>Stalling and setup chatter, in any language.</p>
+        </article>
+        <article>
+          <span class="tag label"><i></i>Tangents and promos</span>
+          <q>Before we start, don't forget to subscribe.</q>
+          <p>Off-topic stories, sponsor reads and channel plugs. Silence is skipped too.</p>
+        </article>
+      </div>
+      <div class="kept-note">
+        <span><i style="background:var(--core)"></i>Core explanations stay</span>
+        <span><i style="background:var(--example)"></i>Worked examples stay</span>
+        <span><i style="background:var(--recap)"></i>Recaps stay, except in Key moments</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="cuts">
+    <div class="wrap">
+      <div class="block-head">
+        <h2>Pick how short</h2>
+        <p>Switching cuts is instant. Nothing gets re-analyzed. Here's an example 72-minute lecture.</p>
+      </div>
+      <div class="table-scroll">
+        <table class="cuts-table">
+          <thead><tr><th>Cut</th><th>What it plays</th><th></th><th style="text-align:right">Length</th></tr></thead>
+          <tbody>
+            <tr><td>Full lecture</td><td>Everything, untouched</td><td><div class="bar"><span style="width:100%"></span></div></td><td class="num">72 min</td></tr>
+            <tr><td>Cut the filler</td><td>Skips logistics, filler, repeats, promos and silence</td><td><div class="bar"><span style="width:76%"></span></div></td><td class="num">55 min</td></tr>
+            <tr><td>Key moments</td><td>Only the most important explanations</td><td><div class="bar"><span style="width:29%"></span></div></td><td class="num">21 min</td></tr>
+            <tr><td>Custom length</td><td>You set a target; it keeps what matters most</td><td><div class="bar"><span style="width:42%"></span></div></td><td class="num">30 min</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="languages">
+    <div class="wrap">
+      <div class="block-head">
+        <h2>Any language, including the ones you mix.</h2>
+        <p>Captions are read as spoken, without translating them first. A lecture that switches between Hindi and English mid-sentence is followed as it switches.</p>
+      </div>
+      <div class="lang-grid">
+        <div class="transcript">
+          <header><span class="label">Transcript · Hindi and English</span><span class="label">Label</span></header>
+          <div class="line skipped"><span class="t">0:12</span><span class="x">Sab log mujhe sun pa rahe ho? Ek second, screen share karta hoon.</span><span class="k skip">Logistics</span></div>
+          <div class="line"><span class="t">0:41</span><span class="x">आज का topic है chain rule। जब function के अंदर function हो, तब इसका use करते हैं।</span><span class="k core">Core</span></div>
+          <div class="line"><span class="t">1:05</span><span class="x">Example लेते हैं: sin(x²) का derivative निकालते हैं।</span><span class="k core">Example</span></div>
+          <div class="line skipped"><span class="t">3:30</span><span class="x">Matlab, jaise maine bola, phir se bata deta hoon…</span><span class="k skip">Repeat</span></div>
+        </div>
+        <div class="facts">
+          <div class="fact"><div><b>With captions</b><p>Opens in about a second, in the captions' own language.</p></div><span class="v">any language</span></div>
+          <div class="fact"><div><b>Without captions</b><p>Whisper turns the speech into text on your Mac, checking the language every 30 seconds.</p></div><span class="v">~99 languages</span></div>
+          <div class="fact"><div><b>The right script</b><p>Hindi in Devanagari, Chinese in Simplified characters.</p></div><span class="v">checked every build</span></div>
+          <div class="fact"><div><b>Titles and summary</b><p>In English, or in the lecture's own language. Your choice in Settings.</p></div><span class="v">your choice</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="private">
+    <div class="wrap">
+      <div class="private">
+        <div>
+          <span class="label" style="color:color-mix(in srgb, var(--paper) 55%, var(--ink))">Private by design</span>
+          <h2 style="margin-top:14px">The AI runs on your Mac.</h2>
+          <p>BriefLectures uses a local model through Ollama, a free app. What you watch isn't uploaded anywhere, and there's no account to make. Results are saved on your Mac, so each lecture is only analyzed once.</p>
+        </div>
+        <div class="specs">
+          <div><span class="label">Model</span><b class="mono" style="font-size:1.1rem">qwen3.5:4b</b></div>
+          <div><span class="label">Download</span><b>3.4 GB</b></div>
+          <div><span class="label">Memory while working</span><b>~4.5 GB</b></div>
+          <div><span class="label">Account</span><b>None</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="faq">
+    <div class="wrap">
+      <div class="block-head">
+        <h2>Questions</h2>
+        <p>Short answers. The longer ones are in the project's docs.</p>
+      </div>
+      <div class="faq">
+        <details><summary>Which Macs does it run on?</summary><p>Apple Silicon Macs (M1 or newer) on macOS 12 or later. It's sized for 16 GB of memory: the AI model uses about 4.5 GB while it works, and it's unloaded a couple of minutes after.</p></details>
+        <details><summary>Do I have to wait for the analysis?</summary><p>No. The lecture opens about a second after you paste the link, with quick skips for silence and logistics. The AI then works through the lecture from the start, ahead of where you're watching, and its skips switch on part by part.</p></details>
+        <details><summary>What if it skips something I needed?</summary><p>Every skip shows a small "Watch it" button that jumps back and plays that part. You can also turn auto-skip off, or switch to the full lecture at any time.</p></details>
+        <details><summary>What about videos with no captions?</summary><p>It downloads the audio and transcribes it on your Mac with Whisper. This is slower than reading captions, and only happens once per video.</p></details>
+        <details><summary>Why do I need Ollama?</summary><p>Ollama runs the AI model on your Mac. It's free, and BriefLectures walks you through installing it and downloading the model the first time you open it. Without it, you still get a rough offline estimate.</p></details>
+        <details><summary>Is it free?</summary><p>Yes. There's no account and no subscription. Everything runs on your own Mac.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2>Your next lecture, minus the rest.</h2>
+      <div class="cta-row">
+        <a class="btn btn-ink" href="https://github.com/adityajatad-spec/BreifLectures/releases">Download for Mac</a>
+        <span class="fine">Free · Apple Silicon · macOS 12 or later</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 BriefLectures</span>
+    <nav aria-label="Footer">
+      <a href="#how">How it works</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/adityajatad-spec/BreifLectures">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // Sticky nav gets a hairline once the page scrolls.
+  const nav = document.getElementById("nav");
+  const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 8);
+  addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  // Duplicate the language ribbon so the loop is seamless.
+  const ribbon = document.getElementById("ribbon");
+  ribbon.innerHTML += ribbon.innerHTML;
+
+  // ---- The demo: an example 72:40 lecture in 20-second segments. ----
+  const TOTAL = 4360; // seconds
+  const KIND_NAMES = { admin: "logistics", filler: "filler", repeat: "a repeat", promo: "a promo", silence: "silence" };
+  const plan = [
+    ["admin", 60], ["core", 240], ["example", 180], ["filler", 40], ["core", 300], ["repeat", 120],
+    ["core", 260], ["example", 200], ["silence", 60], ["core", 220], ["promo", 80], ["core", 300],
+    ["recap", 120], ["repeat", 160], ["core", 280], ["example", 220], ["admin", 140], ["core", 260],
+    ["filler", 60], ["example", 200], ["core", 240], ["repeat", 140], ["recap", 140], ["admin", 120],
+  ];
+  const scale = TOTAL / plan.reduce((s, [, d]) => s + d, 0);
+  let t = 0;
+  const segs = plan.map(([kind, d]) => {
+    const seg = { kind, start: t, end: t + d * scale, skip: !["core", "example", "recap"].includes(kind) };
+    t = seg.end;
+    return seg;
+  });
+
+  const tl = document.getElementById("timeline");
+  const head = document.getElementById("playhead");
+  segs.forEach((s) => {
+    const el = document.createElement("div");
+    el.className = `seg ${s.skip ? "skip" : s.kind}`;
+    el.style.left = `${(s.start / TOTAL) * 100}%`;
+    el.style.width = `calc(${((s.end - s.start) / TOTAL) * 100}% - 1px)`;
+    tl.insertBefore(el, head);
+    s.el = el;
+  });
+
+  const fmt = (sec) => {
+    sec = Math.max(0, Math.round(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = String(sec % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  };
+  const kept = segs.filter((s) => !s.skip).reduce((a, s) => a + s.end - s.start, 0);
+  const clock = document.getElementById("clock");
+  const watch = document.getElementById("watch");
+  const toast = document.getElementById("toast");
+  const toastText = document.getElementById("toast-text");
+  const log = document.getElementById("skiplog");
+  watch.textContent = fmt(kept);
+
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced) {
+    head.style.left = "38%";
+    clock.textContent = `${fmt(TOTAL * 0.38)} / ${fmt(TOTAL)}`;
+    return;
+  }
+
+  const SPEED = 140; // demo seconds per real second
+  let pos = 0, last = performance.now(), toastTimer = 0, lastSkip = -1;
+  const step = (now) => {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    pos += dt * SPEED;
+    const i = segs.findIndex((s) => pos >= s.start && pos < s.end);
+    if (i >= 0 && segs[i].skip && i !== lastSkip) {
+      const s = segs[i];
+      lastSkip = i;
+      // Jump the whole run of skipped segments, the way the app merges adjacent skips.
+      let j = i;
+      while (segs[j + 1] && segs[j + 1].skip) j++;
+      const from = pos, to = segs[j].end;
+      pos = to;
+      for (let k = i; k <= j; k++) {
+        segs[k].el.classList.add("flash");
+        setTimeout(() => segs[k].el.classList.remove("flash"), 450);
+      }
+      toastText.textContent = `Skipped ${fmt(to - from)} of ${KIND_NAMES[s.kind]}`;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 1400);
+      const row = document.createElement("div");
+      row.innerHTML = `<span>${KIND_NAMES[s.kind][0].toUpperCase() + KIND_NAMES[s.kind].slice(1)}</span><span class="mono">−${fmt(to - from)}</span>`;
+      log.appendChild(row);
+      while (log.children.length > 6) log.children[1].remove();
+    }
+    if (pos >= TOTAL) {
+      pos = 0; lastSkip = -1;
+      [...log.children].slice(1).forEach((c) => c.remove());
+    }
+    head.style.left = `${(pos / TOTAL) * 100}%`;
+    clock.textContent = `${fmt(pos)} / ${fmt(TOTAL)}`;
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+})();
+</script>
+</body>
+</html>

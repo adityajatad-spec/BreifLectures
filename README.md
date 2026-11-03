@@ -38,6 +38,7 @@ backend/   FastAPI service: captions → segments → labels (local model or heu
 web/       React + Vite UI: setup, library, cut picker, auto-skipping YouTube player, timeline
 desktop/   Tauri 2 macOS app: Rust shell, splash page, icons, bundling config
 scripts/   build-sidecar.sh packages the backend into the app's two binaries; speech-smoke.py checks speech-to-text
+site/      The marketing website: one static page (site/index.html), deployable as-is to GitHub Pages, Vercel or Netlify
 docs/      Architecture, roadmap, releasing
 ```
 

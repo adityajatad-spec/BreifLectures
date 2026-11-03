@@ -11,9 +11,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TRIPLE="${TARGET_TRIPLE:-$(rustc --print host-tuple)}"
 OUT="$ROOT/desktop/src-tauri/binaries"
 
+# Windows (Git Bash) puts venv tools in Scripts/ and gives executables a .exe suffix.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) BIN=.venv/Scripts; EXE=.exe; SEP=";"; PY="${PYTHON:-python}" ;;
+  *) BIN=.venv/bin; EXE=; SEP=":"; PY="${PYTHON:-python3}" ;;
+esac
+
 cd "$ROOT/backend"
-[ -d .venv ] || python3 -m venv .venv
-.venv/bin/pip install -q -e . "pyinstaller>=6.10"
+[ -d .venv ] || "$PY" -m venv .venv
+"$BIN/python" -m pip install -q -e . "pyinstaller>=6.10"
 
 COMMON=(--onefile --noconfirm --clean --log-level WARN
         --distpath build/dist --workpath build/work --specpath build)
@@ -25,21 +31,21 @@ if [ "$(uname)" = "Darwin" ] && [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
 fi
 
 # The engine never imports the speech stack; keep it out so the engine stays small and fast.
-.venv/bin/pyinstaller run_server.py --name brief-api "${COMMON[@]}" \
+"$BIN/pyinstaller" run_server.py --name brief-api "${COMMON[@]}" \
   --collect-submodules uvicorn \
   --exclude-module app.transcribe \
   --exclude-module faster_whisper --exclude-module ctranslate2 --exclude-module onnxruntime \
   --exclude-module av --exclude-module yt_dlp --exclude-module numpy
 
-DENO="$(.venv/bin/python -c 'import deno; print(deno.find_deno_bin())')"
-.venv/bin/pyinstaller run_transcriber.py --name brief-transcribe "${COMMON[@]}" \
+DENO="$("$BIN/python" -c 'import deno; print(deno.find_deno_bin())')"
+"$BIN/pyinstaller" run_transcriber.py --name brief-transcribe "${COMMON[@]}" \
   --collect-data faster_whisper \
   --collect-binaries ctranslate2 \
   --collect-data yt_dlp_ejs \
-  --add-binary "$DENO:bin"
+  --add-binary "$DENO${SEP}bin"
 
 mkdir -p "$OUT"
 for name in brief-api brief-transcribe; do
-  cp "build/dist/$name" "$OUT/$name-$TRIPLE"
-  echo "Sidecar ready: $OUT/$name-$TRIPLE ($(du -h "build/dist/$name" | cut -f1))"
+  cp "build/dist/$name$EXE" "$OUT/$name-$TRIPLE$EXE"
+  echo "Sidecar ready: $OUT/$name-$TRIPLE$EXE ($(du -h "build/dist/$name$EXE" | cut -f1))"
 done

@@ -10,7 +10,7 @@ computer except the YouTube requests.
 
 ## The macOS app
 
-Download the `.dmg` from the GitHub release (or the **Release (macOS)** workflow's artifacts),
+Download the `.dmg` from the GitHub release (or the **Release** workflow's artifacts),
 drag BriefLectures to Applications, and open it. The first screen walks you through
 installing Ollama and downloading the model. To build it yourself on a Mac: `make setup && make app`.
 See [docs/RELEASING.md](docs/RELEASING.md) for signing and releases.

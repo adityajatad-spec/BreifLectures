@@ -66,7 +66,7 @@ export function SetupCard({ onReady }: { onReady?: () => void }) {
     body = (
       <>
         <p>
-          BriefLectures runs its AI on your Mac with <strong>Ollama</strong>, a free app. Nothing you watch leaves your
+          BriefLectures runs its AI on this computer with <strong>Ollama</strong>, a free app. Nothing you watch leaves your
           computer. Install it, open it once, and come back here.
         </p>
         <button className="btn btn-primary" onClick={() => act(() => openExternal(status.ollama_download_url))}>

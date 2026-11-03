@@ -18,16 +18,34 @@ import time
 from pathlib import Path
 
 
+def _alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        # os.kill(pid, 0) would *terminate* the process on Windows; ask for its exit code instead.
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        ok = kernel32.GetExitCodeProcess(handle, ctypes.byref(code))
+        kernel32.CloseHandle(handle)
+        return bool(ok) and code.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass  # exists, just not ours to signal
+    return True
+
+
 def _watch_parent(pid: int) -> None:
     while True:
         time.sleep(2)
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
+        if not _alive(pid):
             logging.getLogger(__name__).info("App process %s is gone; shutting down", pid)
             os._exit(0)
-        except PermissionError:
-            pass  # exists, just not ours to signal
 
 
 def _setup_logging(log_dir: str | None) -> None:

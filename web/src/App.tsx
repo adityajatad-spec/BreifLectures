@@ -18,7 +18,7 @@ const SAVE_POSITION_EVERY = 5; // seconds of playback
 const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: "scissors", title: "Cuts the filler", text: "Silence, logistics, promos and repeats are skipped as you watch." },
   { icon: "globe", title: "Any language", text: "Hindi, Hinglish, Spanish, Japanese… with or without captions." },
-  { icon: "lock", title: "Stays on your Mac", text: "A local AI model does the work. No account, no uploads." },
+  { icon: "lock", title: "Stays on your computer", text: "A local AI model does the work. No account, no uploads." },
 ];
 
 function UrlForm({

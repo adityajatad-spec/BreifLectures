@@ -147,8 +147,12 @@ def test_captions_are_used_without_touching_speech_to_text(app_client, monkeypat
 
 def fake_worker(tmp_path: Path, body: str) -> str:
     script = tmp_path / "worker.py"
-    script.write_text(f"#!{sys.executable}\nimport json, sys\n" + body)
+    script.write_text(f"#!{sys.executable}\nimport json, sys\n" + body, encoding="utf-8")
     script.chmod(0o755)
+    if sys.platform == "win32":  # Windows can't run a script by its shebang line
+        wrapper = tmp_path / "worker.cmd"
+        wrapper.write_text(f'@"{sys.executable}" "{script}" %*\n')
+        return str(wrapper)
     return str(script)
 
 

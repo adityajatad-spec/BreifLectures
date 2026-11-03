@@ -21,7 +21,7 @@ right-click → Open, ad-hoc sign it: `APPLE_SIGNING_IDENTITY=- make app`.
 
 `.github/workflows/release.yml` builds on an Apple Silicon runner:
 
-- **Actions → Release (macOS) → Run workflow** gives you the `.dmg` as a downloadable artifact.
+- **Actions → Release → Run workflow** gives you the `.dmg` as a downloadable artifact.
 - **Pushing a tag** such as `git tag v0.3.0 && git push origin v0.3.0` also attaches it to
   a draft GitHub release, which you publish by hand.
 

@@ -44,7 +44,7 @@ class TranscribeError(Exception):
 
 def deno_path() -> str | None:
     """yt-dlp needs a JavaScript runtime for YouTube. The app bundles Deno next to this code."""
-    bundled = Path(getattr(sys, "_MEIPASS", "")) / "bin" / "deno"
+    bundled = Path(getattr(sys, "_MEIPASS", "")) / "bin" / ("deno.exe" if sys.platform == "win32" else "deno")
     if getattr(sys, "_MEIPASS", None) and bundled.exists():
         return str(bundled)
     try:

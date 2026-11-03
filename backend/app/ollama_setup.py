@@ -1,9 +1,11 @@
 """Helping the user get a local model running: detect Ollama, start it, download a model."""
 
 import logging
+import os
 import platform
 import shutil
 import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -24,6 +26,8 @@ RECOMMENDED = [
 
 OLLAMA_DOWNLOAD_URL = "https://ollama.com/download"
 _MAC_APP = Path("/Applications/Ollama.app")
+# The Windows installer puts it here, and the tray app starts the server.
+_WINDOWS_APP = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama app.exe"
 
 
 class PullState(BaseModel):
@@ -50,7 +54,7 @@ def pulled_models() -> list[str] | None:
 def ollama_state(models: list[str] | None) -> str:
     if models is not None:
         return "running"
-    if _MAC_APP.exists() or shutil.which("ollama"):
+    if _MAC_APP.exists() or (sys.platform == "win32" and _WINDOWS_APP.exists()) or shutil.which("ollama"):
         return "stopped"
     return "missing"
 
@@ -58,8 +62,11 @@ def ollama_state(models: list[str] | None) -> str:
 def start_ollama() -> None:
     if platform.system() == "Darwin" and _MAC_APP.exists():
         subprocess.Popen(["open", "-a", "Ollama"])
+    elif sys.platform == "win32" and _WINDOWS_APP.exists():
+        subprocess.Popen([str(_WINDOWS_APP)], creationflags=subprocess.DETACHED_PROCESS)
     elif exe := shutil.which("ollama"):
-        subprocess.Popen([exe, "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        detach = {"creationflags": subprocess.DETACHED_PROCESS} if sys.platform == "win32" else {"start_new_session": True}
+        subprocess.Popen([exe, "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **detach)
     else:
         raise RuntimeError("Ollama is not installed.")
 

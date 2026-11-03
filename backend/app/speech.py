@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import subprocess
 import sys
 from collections.abc import Callable
@@ -44,7 +45,9 @@ def transcribe_video(
     result: dict | None = None
     error: str | None = None
     # stderr is inherited, so library warnings land in the engine's log.
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, encoding="utf-8") as proc:
+    # UTF-8 both ways: Windows' default console encoding can't carry Hindi or Tamil text.
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, encoding="utf-8", env=env) as proc:
         assert proc.stdout is not None
         for line in proc.stdout:
             try:

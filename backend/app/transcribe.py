@@ -277,6 +277,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--models-dir", default=str(Path.home() / ".cache" / "brieflectures" / "whisper"))
     parser.add_argument("--threads", type=int, default=max(1, (os.cpu_count() or 4) - 2))
     args = parser.parse_args(argv)
+    # The engine reads UTF-8; Windows would otherwise write cp1252 and fail on most languages.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
     try:
         if args.self_test:

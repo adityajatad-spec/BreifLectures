@@ -23,7 +23,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="BriefLectures API", version="0.4.1", lifespan=lifespan)
+app = FastAPI(title="BriefLectures API", version="0.4.2", lifespan=lifespan)
 # Only answer to loopback host names. Otherwise a web page could rebind its own domain to
 # 127.0.0.1 (DNS rebinding) and drive this API from the user's browser.
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
